@@ -50,6 +50,32 @@
   .modulBtn.stok:hover { border-color:#C4DBE7; background:#E7F0F5; }
   .modulBtn.takvim:hover { border-color:#D8C9E7; background:#F0EAF5; }
   .modulBtn.calisan:hover { border-color:#C7DDCB; background:#EAF2EC; }
+  .modulBtn.hava:hover { border-color:#B9D4E4; background:#E4F0F7; }
+  /* ---- Hava durumu modülü ---- */
+  .havaSimdi { background:linear-gradient(135deg,#2C6E8F,#1E4E68); color:#fff; border-radius:14px; padding:16px; margin-top:12px;
+    display:flex; align-items:center; gap:16px; box-shadow:0 6px 18px rgba(44,110,143,.25); }
+  .havaSimdi .hIkon { font-size:44px; line-height:1; }
+  .havaSimdi .hDerece { font-size:34px; font-weight:800; line-height:1; }
+  .havaSimdi .hAcik { font-size:13px; font-weight:600; opacity:.85; margin-top:4px; }
+  .havaDetayGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:7px; margin-top:10px; }
+  .havaDetay { background:#fff; border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
+  .havaDetay .k { font-size:10px; color:var(--faint); text-transform:uppercase; letter-spacing:.04em; font-weight:700; }
+  .havaDetay .v { font-size:14.5px; font-weight:800; margin-top:2px; }
+  .havaSaatSerit { display:flex; gap:6px; overflow-x:auto; padding:4px 0 8px; }
+  .havaSaat { flex-shrink:0; width:62px; background:#fff; border:1px solid var(--border); border-radius:10px;
+    padding:7px 4px; text-align:center; }
+  .havaSaat .s { font-size:10.5px; color:var(--faint); font-weight:700; }
+  .havaSaat .i { font-size:19px; margin:3px 0; }
+  .havaSaat .t { font-size:12.5px; font-weight:800; }
+  .havaSaat .y { font-size:10px; color:var(--blue); font-weight:700; margin-top:1px; }
+  .havaGun { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--border);
+    border-radius:10px; padding:9px 12px; margin-top:6px; }
+  .havaGun .gAd { width:88px; font-size:12.5px; font-weight:700; }
+  .havaGun .gIkon { font-size:21px; width:30px; text-align:center; }
+  .havaGun .gAcik { flex:1; font-size:12px; color:var(--muted); font-weight:600; }
+  .havaGun .gMin { font-size:12.5px; color:var(--faint); font-weight:700; }
+  .havaGun .gMax { font-size:13.5px; font-weight:800; width:34px; text-align:right; }
+  .havaGun .gYagis { font-size:11px; color:var(--blue); font-weight:700; width:60px; text-align:right; }
   /* ---- Aylık takvim ---- */
   .takvimUst { display:flex; align-items:center; gap:8px; margin:14px 0 10px; }
   .takvimAyBaslik { font-size:16px; font-weight:800; flex:1; text-align:center; }
@@ -234,6 +260,7 @@
   #stokEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
   #takvimEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
   #calisanEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
+  #havaEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
   .wikiIc { max-width:720px; margin:0 auto; padding:20px 16px 60px; }
   .uyum { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; border-radius:8px; font-size:13px; font-weight:600; margin-top:6px; }
   .uyum.ok  { background:var(--greenBg); color:var(--green); border:1px solid #C9DFC4; }
@@ -256,6 +283,7 @@
 <div id="stokEkrani"><div class="wikiIc" id="stokIcerik"></div></div>
 <div id="takvimEkrani"><div class="wikiIc" id="takvimIcerik"></div></div>
 <div id="calisanEkrani"><div class="wikiIc" id="calisanIcerik"></div></div>
+<div id="havaEkrani"><div class="wikiIc" id="havaIcerik"></div></div>
 <div id="yeniModal"><div class="ymArka" onclick="yeniParselIptal()"></div><div class="ymKart" id="ymKart"></div></div>
 <div id="onayModal"><div class="onayArka"></div><div class="onayKart" id="onayKart"></div></div>
 <div id="stokGirisModal"><div class="onayArka" onclick="stokGirisKapat()"></div><div class="onayKart" id="stokGirisKart" style="width:min(420px,94vw)"></div></div>
@@ -274,12 +302,42 @@
       <input type="password" id="girisSifre" placeholder="Şifre" autocomplete="current-password">
       <div id="girisHata" class="girisHata"></div>
       <button class="girisBtn" id="girisBtn" onclick="girisYap()">Giriş yap</button>
-      <div class="girisDegis">
-        <span id="girisDegisMetin">Hesabın yok mu?</span>
-        <a onclick="girisModDegis()" id="girisDegisLink">Kayıt ol</a>
-      </div>
+      <div class="girisDegis" style="font-size:12px;color:var(--faint)">Hesap açmak için firma yöneticinle iletişime geç.</div>
     </div>
   </div>
+</div>
+
+<!-- Firma kurulum ekranı: giriş yaptı ama henüz bir firmaya üye değil -->
+<div id="firmaEkrani" style="display:none; position:fixed; inset:0; z-index:6000; background:linear-gradient(135deg,#1a2416,#0f1a0d); align-items:center; justify-content:center; padding:20px;">
+  <div class="girisKart">
+    <div class="girisLogo">
+      <svg width="46" height="46" viewBox="0 0 40 40" fill="none"><path d="M20 4C20 4 12 10 12 20C12 28 20 36 20 36C20 36 28 28 28 20C28 10 20 4 20 4Z" fill="#8BC34A"/><path d="M20 8C20 8 16 13 16 20C16 26 20 32 20 32" stroke="#3E7A3A" stroke-width="1.5"/></svg>
+      <div><div class="girisAd">SEÇ AGRO</div><div class="girisAlt">FIELD INTELLIGENCE | BG</div></div>
+    </div>
+    <div class="girisBaslikY">Firmanı seç 🏢</div>
+    <div class="girisAyarMetin" style="display:block">
+      <b id="firmaEposta"></b> ile giriş yaptın ama henüz bir firmaya bağlı değilsin.
+      Yeni firma kur (14 gün ücretsiz deneme) ya da yöneticinden aldığın davet koduyla firmana katıl.
+    </div>
+    <div class="formBox">
+      <div style="font-size:13.5px;font-weight:800;margin-bottom:6px">🌱 Yeni firma kur</div>
+      <input type="text" id="firmaAdiInput" placeholder="Firma adı (ör. Seç Tarım Ltd.)">
+      <button class="girisBtn" id="firmaKurBtn" onclick="firmaKur()" style="margin-top:10px">Firmayı kur — 14 gün ücretsiz</button>
+    </div>
+    <div class="formBox">
+      <div style="font-size:13.5px;font-weight:800;margin-bottom:6px">🎟️ Davet koduyla katıl</div>
+      <input type="text" id="davetKodInput" placeholder="Davet kodu (ör. A3F9B2C1)" style="text-transform:uppercase">
+      <button class="girisBtn" id="davetKatilBtn" onclick="davetKatil()" style="margin-top:10px;background:var(--blue)">Firmaya katıl</button>
+    </div>
+    <div id="firmaHataDiv" class="girisHata"></div>
+    <div class="girisDegis"><a onclick="cikisYap()">← Başka hesapla gir</a></div>
+  </div>
+</div>
+
+<!-- Firma yönetim paneli -->
+<div id="firmaModal" style="display:none; position:fixed; inset:0; z-index:4000;">
+  <div class="onayArka" onclick="firmaPanelKapat()"></div>
+  <div class="onayKart" id="firmaModalKart" style="width:min(440px,94vw); max-height:88vh; overflow-y:auto;"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -293,7 +351,9 @@ const SUPABASE_KEY = "sb_publishable_8m9DsmOq4BcrobpDW9HA7A_aEsWZLQ5";
 
 let sb = null;              // supabase client
 let aktifKullanici = null;  // giriş yapan kullanıcı
-let girisMod = "giris";     // "giris" | "kayit"
+let aktifFirma = null;      // { id, ad, davet_kodu, abonelik_bitis }
+let firmaRol = null;        // "yonetici" | "uye"
+let saltOkuma = false;      // abonelik süresi doldu → yalnızca görüntüleme
 let bulutHazir = false;
 let kaydetZaman = null;
 let realtimeKanal = null;
@@ -305,15 +365,6 @@ function supabaseBaslat() {
     return true;
   } catch(e) { girisHata("Bağlantı hatası: " + e.message); return false; }
 }
-window.girisModDegis = () => {
-  girisMod = girisMod === "giris" ? "kayit" : "giris";
-  const g = girisMod === "giris";
-  document.getElementById("girisBaslik").textContent = g ? "Giriş yap" : "Kayıt ol";
-  document.getElementById("girisBtn").textContent = g ? "Giriş yap" : "Kayıt ol";
-  document.getElementById("girisDegisMetin").textContent = g ? "Hesabın yok mu?" : "Zaten hesabın var mı?";
-  document.getElementById("girisDegisLink").textContent = g ? "Kayıt ol" : "Giriş yap";
-  document.getElementById("girisHata").textContent = "";
-};
 function girisHata(msg) { document.getElementById("girisHata").textContent = msg; }
 window.girisYap = async () => {
   if (!sb) { girisHata("Önce Supabase bağlantısını kur."); return; }
@@ -323,15 +374,8 @@ window.girisYap = async () => {
   document.getElementById("girisBtn").disabled = true;
   girisHata("");
   try {
-    let res;
-    if (girisMod === "kayit") {
-      res = await sb.auth.signUp({ email, password: sifre });
-      if (res.error) throw res.error;
-      if (!res.data.session) { girisHata("Kayıt alındı. E-postana gelen onay linkine tıkla, sonra giriş yap."); document.getElementById("girisBtn").disabled = false; return; }
-    } else {
-      res = await sb.auth.signInWithPassword({ email, password: sifre });
-      if (res.error) throw res.error;
-    }
+    const res = await sb.auth.signInWithPassword({ email, password: sifre });
+    if (res.error) throw res.error;
     await oturumBasladi(res.data.user || res.data.session.user);
   } catch(e) {
     girisHata(cevirHata(e.message || "Giriş başarısız."));
@@ -348,18 +392,41 @@ function cevirHata(m) {
 window.cikisYap = async () => {
   if (realtimeKanal) { try { await sb.removeChannel(realtimeKanal); } catch(e){} }
   if (sb) await sb.auth.signOut();
-  aktifKullanici = null; bulutHazir = false;
+  aktifKullanici = null; aktifFirma = null; firmaRol = null; bulutHazir = false;
   location.reload();
 };
 
-// Oturum başladığında: ortak veriyi yükle + canlı senkronu başlat
+// Oturum başladığında: firma üyeliğini bul → yoksa firma kurulum ekranı
 async function oturumBasladi(user) {
   aktifKullanici = user;
   document.getElementById("girisEkrani").style.display = "none";
+  const uyelik = await firmaUyeligiGetir();
+  if (!uyelik) { firmaEkraniGoster(); return; }
+  await firmaIleBasla(uyelik.firma, uyelik.rol);
+}
+
+// Kullanıcının firma üyeliğini getir (yoksa null)
+async function firmaUyeligiGetir() {
+  try {
+    const { data, error } = await sb.from("firma_uyeler")
+      .select("rol, firmalar ( id, ad, davet_kodu, abonelik_bitis )")
+      .eq("user_id", aktifKullanici.id).limit(1);
+    if (error) throw error;
+    if (!data || !data.length || !data[0].firmalar) return null;
+    return { rol: data[0].rol, firma: data[0].firmalar };
+  } catch(e) { toast("⚠️ Üyelik sorgu hatası: " + e.message); return null; }
+}
+
+// Firma belli olunca: abonelik kontrolü + veri yükleme + canlı senkron
+async function firmaIleBasla(firma, rol) {
+  aktifFirma = firma; firmaRol = rol;
+  saltOkuma = new Date(firma.abonelik_bitis) <= new Date();
+  document.getElementById("firmaEkrani").style.display = "none";
   await bulutYukle();
   bulutHazir = true;
   realtimeBaslat();
   render();
+  if (saltOkuma) toast("🔒 " + (dil==="tr" ? "Abonelik süresi doldu — veriler salt okunur." : "Абонаментът изтече — данните са само за четене."));
 }
 async function oturumKontrol() {
   if (!sb) return;
@@ -367,13 +434,109 @@ async function oturumKontrol() {
   if (data.session) await oturumBasladi(data.session.user);
 }
 
-// Ortak veriyi tek tablodan yükle
-async function bulutYukle() {
-  if (!sb) return;
+// ---- Firma kurulum ekranı (üyelik yoksa) ----
+function firmaEkraniGoster() {
+  document.getElementById("firmaEkrani").style.display = "flex";
+  document.getElementById("firmaEposta").textContent = aktifKullanici ? aktifKullanici.email : "";
+}
+function firmaHata(msg) { document.getElementById("firmaHataDiv").textContent = msg; }
+window.firmaKur = async () => {
+  const ad = document.getElementById("firmaAdiInput").value.trim();
+  if (!ad) { firmaHata("Firma adı gerekli."); return; }
+  firmaHata("");
+  document.getElementById("firmaKurBtn").disabled = true;
   try {
-    const { data, error } = await sb.from("sirket_veri").select("anahtar, veri");
+    const { data, error } = await sb.rpc("firma_kur", { firma_adi: ad });
     if (error) throw error;
-    if (!data || !data.length) { await bulutKaydet(true); return; } // ilk kez: demo veriyi yaz
+    toast("🎉 " + ad + " kuruldu — 14 günlük ücretsiz deneme başladı!");
+    await firmaIleBasla(data, "yonetici");
+  } catch(e) { firmaHata(e.message || "Firma kurulamadı."); }
+  document.getElementById("firmaKurBtn").disabled = false;
+};
+window.davetKatil = async () => {
+  const kod = document.getElementById("davetKodInput").value.trim();
+  if (!kod) { firmaHata("Davet kodu gerekli."); return; }
+  firmaHata("");
+  document.getElementById("davetKatilBtn").disabled = true;
+  try {
+    const { data, error } = await sb.rpc("davetle_katil", { kod });
+    if (error) throw error;
+    toast("✅ " + data.ad + " firmasına katıldın!");
+    await firmaIleBasla(data, "uye");
+  } catch(e) { firmaHata(e.message || "Katılım başarısız."); }
+  document.getElementById("davetKatilBtn").disabled = false;
+};
+
+// ---- Firma yönetim paneli ----
+window.firmaPanelKapat = () => { document.getElementById("firmaModal").style.display = "none"; };
+window.firmaPanelAc = async () => {
+  if (!aktifFirma) return;
+  const t = dil === "tr";
+  const bitis = new Date(aktifFirma.abonelik_bitis);
+  const kalanGun = Math.ceil((bitis - new Date()) / 86400000);
+  const aktif = kalanGun > 0;
+  let html = '<div class="oBaslik">🏢 ' + esc(aktifFirma.ad) + '</div>';
+  html += '<div class="bilgi" style="margin-bottom:8px"><div class="k">' + (t?"Abonelik":"Абонамент") + '</div>' +
+    '<div class="v" style="color:' + (aktif ? (kalanGun<=7?"var(--gold)":"var(--green)") : "var(--red)") + '">' +
+    (aktif ? '✅ ' + (t?"Aktif":"Активен") + ' — ' + kalanGun + ' ' + (t?"gün kaldı":"дни остават")
+           : '🔒 ' + (t?"Süresi doldu":"Изтекъл")) +
+    '</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">' +
+    (t?"Bitiş: ":"Край: ") + bitis.toLocaleDateString(t?"tr-TR":"bg-BG") + '</div></div>';
+  if (!aktif) html += '<div class="uyari">' + (t
+    ? "Aboneliği yenilemek için bizimle iletişime geç. Yenilenene kadar veriler salt okunur — hiçbir şey silinmez."
+    : "Свържи се с нас за подновяване. Дотогава данните са само за четене — нищо не се изтрива.") + '</div>';
+  if (firmaRol === "yonetici") {
+    html += '<div class="ciftlikBar" style="margin-top:10px">🎟️ ' + (t?"Davet kodu":"Код за покана") + ': ' +
+      '<code onclick="davetKopyala()" title="' + (t?"Kopyalamak için tıkla":"Кликни за копиране") + '">' + esc(aktifFirma.davet_kodu) + '</code> ' +
+      '<span style="color:var(--muted)">' + (t?"— çalışanların bu kodla kayıt olup firmana katılır":"— служителите се присъединяват с този код") + '</span></div>';
+  }
+  html += '<div class="wikiBaslik">' + (t?"Üyeler":"Членове") + '</div><div id="firmaUyeListe" style="font-size:12.5px;color:var(--muted)">…</div>';
+  html += '<div class="oBtnlar" style="margin-top:14px"><button class="oVazgec" onclick="firmaPanelKapat()">' + (t?"Kapat":"Затвори") + '</button></div>';
+  document.getElementById("firmaModalKart").innerHTML = html;
+  document.getElementById("firmaModal").style.display = "block";
+  try {
+    const { data, error } = await sb.from("firma_uyeler").select("user_id, eposta, rol").eq("firma_id", aktifFirma.id).order("olusturuldu");
+    if (error) throw error;
+    let uh = "";
+    (data || []).forEach(u => {
+      const ben = aktifKullanici && u.user_id === aktifKullanici.id;
+      uh += '<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border)">' +
+        '<span>' + (u.rol === "yonetici" ? "👑" : "👤") + '</span>' +
+        '<span style="flex:1;color:var(--ink);font-weight:600">' + esc(u.eposta || "?") + (ben ? ' <span style="color:var(--faint);font-weight:500">(' + (t?"sen":"ти") + ')</span>' : '') + '</span>' +
+        '<span class="chip">' + (u.rol === "yonetici" ? (t?"Yönetici":"Управител") : (t?"Üye":"Член")) + '</span>' +
+        (firmaRol === "yonetici" && !ben
+          ? '<button class="cikisBtn" onclick="uyeCikar(\'' + u.user_id + '\')">' + (t?"Çıkar":"Премахни") + '</button>' : '') +
+        '</div>';
+    });
+    document.getElementById("firmaUyeListe").innerHTML = uh || (t?"Üye yok.":"Няма членове.");
+  } catch(e) {
+    const el = document.getElementById("firmaUyeListe");
+    if (el) el.textContent = "⚠️ " + e.message;
+  }
+};
+window.davetKopyala = () => {
+  if (!aktifFirma) return;
+  navigator.clipboard.writeText(aktifFirma.davet_kodu).then(
+    () => toast("📋 " + (dil==="tr"?"Davet kodu kopyalandı":"Кодът е копиран")),
+    () => toast(aktifFirma.davet_kodu)
+  );
+};
+window.uyeCikar = async (uid) => {
+  try {
+    const { error } = await sb.from("firma_uyeler").delete().eq("firma_id", aktifFirma.id).eq("user_id", uid);
+    if (error) throw error;
+    toast("👋 " + (dil==="tr"?"Üye çıkarıldı":"Членът е премахнат"));
+    firmaPanelAc(); // listeyi tazele
+  } catch(e) { toast("⚠️ " + e.message); }
+};
+
+// Firma verisini firma bazlı tablodan yükle
+async function bulutYukle() {
+  if (!sb || !aktifFirma) return;
+  try {
+    const { data, error } = await sb.from("firma_veri").select("anahtar, veri").eq("firma_id", aktifFirma.id);
+    if (error) throw error;
+    if (!data || !data.length) { if (!saltOkuma) await bulutKaydet(true); return; } // ilk kez: demo veriyi yaz
     veriUygula(data);
   } catch(e) { toast("⚠️ Bulut yükleme hatası: " + e.message); }
 }
@@ -387,24 +550,25 @@ function veriUygula(satirlar) {
   if (harita.wikiNotlar) wikiNotlar = harita.wikiNotlar;
 }
 
-// Ortak veriyi tek tabloya yaz (debounce)
+// Firma verisini firma bazlı tabloya yaz (debounce)
 async function bulutKaydet(hemen) {
-  if (!sb || (!bulutHazir && !hemen) || uzaktanGeldi) return;
+  if (!sb || !aktifFirma || saltOkuma || (!bulutHazir && !hemen) || uzaktanGeldi) return;
   clearTimeout(kaydetZaman);
   const yaz = async () => {
-    if (!sb) return;
+    if (!sb || !aktifFirma) return;
+    const fid = aktifFirma.id;
     const eposta = aktifKullanici ? aktifKullanici.email : "";
     const zaman = new Date().toISOString();
     const satirlar = [
-      { anahtar:"parseller",   veri: parseller,   guncelleyen:eposta, guncellendi:zaman },
-      { anahtar:"stok",        veri: stok,        guncelleyen:eposta, guncellendi:zaman },
-      { anahtar:"calisanlar",  veri: calisanlar,  guncelleyen:eposta, guncellendi:zaman },
-      { anahtar:"gorevler",    veri: gorevler,    guncelleyen:eposta, guncellendi:zaman },
-      { anahtar:"stokHareket", veri: stokHareket, guncelleyen:eposta, guncellendi:zaman },
-      { anahtar:"wikiNotlar",  veri: wikiNotlar,  guncelleyen:eposta, guncellendi:zaman },
+      { firma_id:fid, anahtar:"parseller",   veri: parseller,   guncelleyen:eposta, guncellendi:zaman },
+      { firma_id:fid, anahtar:"stok",        veri: stok,        guncelleyen:eposta, guncellendi:zaman },
+      { firma_id:fid, anahtar:"calisanlar",  veri: calisanlar,  guncelleyen:eposta, guncellendi:zaman },
+      { firma_id:fid, anahtar:"gorevler",    veri: gorevler,    guncelleyen:eposta, guncellendi:zaman },
+      { firma_id:fid, anahtar:"stokHareket", veri: stokHareket, guncelleyen:eposta, guncellendi:zaman },
+      { firma_id:fid, anahtar:"wikiNotlar",  veri: wikiNotlar,  guncelleyen:eposta, guncellendi:zaman },
     ];
     try {
-      const { error } = await sb.from("sirket_veri").upsert(satirlar, { onConflict:"anahtar" });
+      const { error } = await sb.from("firma_veri").upsert(satirlar, { onConflict:"firma_id,anahtar" });
       if (error) throw error;
     } catch(e) { toast("⚠️ Bulut kayıt hatası: " + e.message); }
   };
@@ -412,14 +576,14 @@ async function bulutKaydet(hemen) {
   kaydetZaman = setTimeout(yaz, 700);
 }
 
-// Canlı senkron: diğer kişi bir şey değiştirince otomatik gelsin
+// Canlı senkron: aynı firmadan biri bir şey değiştirince otomatik gelsin
 function realtimeBaslat() {
-  if (!sb || realtimeKanal) return;
-  realtimeKanal = sb.channel("sirket_veri_kanal")
-    .on("postgres_changes", { event:"*", schema:"public", table:"sirket_veri" }, async () => {
+  if (!sb || !aktifFirma || realtimeKanal) return;
+  realtimeKanal = sb.channel("firma_veri_" + aktifFirma.id)
+    .on("postgres_changes", { event:"*", schema:"public", table:"firma_veri", filter:"firma_id=eq." + aktifFirma.id }, async () => {
       // uzaktan değişiklik geldi → tüm veriyi tazele
       try {
-        const { data } = await sb.from("sirket_veri").select("anahtar, veri");
+        const { data } = await sb.from("firma_veri").select("anahtar, veri").eq("firma_id", aktifFirma.id);
         if (data) {
           uzaktanGeldi = true;
           veriUygula(data);
@@ -1119,8 +1283,22 @@ function render() {
     '<button class="' + (dil==="bg"?"aktif":"") + '" onclick="dilDegistir(\'bg\')">BG</button>' +
     '</div></div>';
 
-  let html = logo + '<div class="sub" style="margin-top:8px">' + parseller.length + ' ' + TR(S.parsel) + ' · ' + toplamAlan + ' ' + (dil==="tr"?"da":"дка") + ' ' + TR(S.toplam) +
-    (aktifKullanici ? ' · <span style="color:var(--faint)">☁️ ' + esc(aktifKullanici.email) + '</span> <button class="cikisBtn" onclick="cikisYap()" style="margin-left:4px">' + (dil==="tr"?"Çıkış":"Изход") + '</button>' : '') + '</div>';
+  let html = logo;
+  if (aktifFirma) {
+    const kalanGun = Math.ceil((new Date(aktifFirma.abonelik_bitis) - new Date()) / 86400000);
+    html += '<div class="sub" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+      '<b style="color:var(--ink)">🏢 ' + esc(aktifFirma.ad) + '</b>' +
+      '<button class="cikisBtn" onclick="firmaPanelAc()">' + (dil==="tr"?"Firma":"Фирма") + '</button>' +
+      (aktifKullanici ? '<span style="color:var(--faint)">☁️ ' + esc(aktifKullanici.email) + '</span> <button class="cikisBtn" onclick="cikisYap()">' + (dil==="tr"?"Çıkış":"Изход") + '</button>' : '') + '</div>';
+    if (saltOkuma) {
+      html += '<div style="background:#FBEAE8;border:1px solid #EFC7C2;color:var(--red);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;margin-bottom:8px">🔒 ' +
+        (dil==="tr" ? "Abonelik süresi doldu — veriler salt okunur. Yenilemek için bizimle iletişime geçin." : "Абонаментът изтече — само за четене. Свържете се с нас за подновяване.") + '</div>';
+    } else if (kalanGun <= 7) {
+      html += '<div style="background:var(--goldBg);border:1px solid #E8D9A8;color:var(--gold);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;margin-bottom:8px">⏳ ' +
+        (dil==="tr" ? "Aboneliğin bitmesine " + kalanGun + " gün kaldı." : "Остават " + kalanGun + " дни от абонамента.") + '</div>';
+    }
+  }
+  html += '<div class="sub" style="margin-top:6px">' + parseller.length + ' ' + TR(S.parsel) + ' · ' + toplamAlan + ' ' + (dil==="tr"?"da":"дка") + ' ' + TR(S.toplam) + '</div>';
 
   // Sezon (yıl) seçici
   const sezonlar = SEZONLAR();
@@ -1140,6 +1318,7 @@ function render() {
     '<button class="modulBtn stok" onclick="stokAc()"><span class="mIkon">📦</span>' + TR(S.stok).replace("📦 ","") + '</button>' +
     '<button class="modulBtn takvim" onclick="takvimAc()"><span class="mIkon">📅</span>' + TR(S.takvim).replace("📅 ","") + '</button>' +
     '<button class="modulBtn calisan" onclick="calisanAc()"><span class="mIkon">👷</span>' + TR(S.calisanlar).replace("👷 ","") + '</button>' +
+    '<button class="modulBtn hava" onclick="havaAc()" style="grid-column:1 / -1"><span class="mIkon">🌦️</span>' + (dil==="tr"?"Hava Durumu":"Метео прогноза") + '</button>' +
     '</div>';
 
   if (!secili) {
@@ -2691,6 +2870,158 @@ window.wikiAra = async () => {
     wikiCiz("hata");
   }
 };
+
+// ================= HAVA DURUMU MODÜLÜ =================
+// Open-Meteo (ücretsiz, anahtar gerektirmez) — tarlaların merkez noktasına göre tahmin
+const havaEl = document.getElementById("havaEkrani");
+const havaIc = document.getElementById("havaIcerik");
+let havaVeri = null, havaZaman = 0, havaYukleniyor = false;
+
+// WMO hava kodu → ikon + açıklama
+const HAVA_KOD = {
+  0:{i:"☀️",tr:"Açık",bg:"Ясно"}, 1:{i:"🌤️",tr:"Az bulutlu",bg:"Предимно ясно"},
+  2:{i:"⛅",tr:"Parçalı bulutlu",bg:"Променлива облачност"}, 3:{i:"☁️",tr:"Kapalı",bg:"Облачно"},
+  45:{i:"🌫️",tr:"Sisli",bg:"Мъгла"}, 48:{i:"🌫️",tr:"Kırağılı sis",bg:"Скрежаща мъгла"},
+  51:{i:"🌦️",tr:"Hafif çisenti",bg:"Слаб ръмеж"}, 53:{i:"🌦️",tr:"Çisenti",bg:"Ръмеж"}, 55:{i:"🌧️",tr:"Yoğun çisenti",bg:"Силен ръмеж"},
+  61:{i:"🌧️",tr:"Hafif yağmur",bg:"Слаб дъжд"}, 63:{i:"🌧️",tr:"Yağmur",bg:"Дъжд"}, 65:{i:"🌧️",tr:"Kuvvetli yağmur",bg:"Силен дъжд"},
+  66:{i:"🌧️",tr:"Donan yağmur",bg:"Леден дъжд"}, 67:{i:"🌧️",tr:"Kuvvetli donan yağmur",bg:"Силен леден дъжд"},
+  71:{i:"🌨️",tr:"Hafif kar",bg:"Слаб сняг"}, 73:{i:"🌨️",tr:"Kar",bg:"Сняг"}, 75:{i:"❄️",tr:"Yoğun kar",bg:"Силен сняг"}, 77:{i:"❄️",tr:"Kar taneleri",bg:"Снежни зърна"},
+  80:{i:"🌦️",tr:"Hafif sağanak",bg:"Слаб превалявания"}, 81:{i:"🌧️",tr:"Sağanak",bg:"Превалявания"}, 82:{i:"⛈️",tr:"Şiddetli sağanak",bg:"Поройни валежи"},
+  85:{i:"🌨️",tr:"Kar sağanağı",bg:"Снежни превалявания"}, 86:{i:"❄️",tr:"Yoğun kar sağanağı",bg:"Силни снежни превалявания"},
+  95:{i:"⛈️",tr:"Gök gürültülü fırtına",bg:"Гръмотевична буря"}, 96:{i:"⛈️",tr:"Dolu fırtınası",bg:"Буря с градушка"}, 99:{i:"⛈️",tr:"Şiddetli dolu fırtınası",bg:"Силна буря с градушка"},
+};
+function havaKod(k) { return HAVA_KOD[k] || { i:"🌡️", tr:"—", bg:"—" }; }
+
+// Tüm parsellerin köşe noktalarının ortalaması = tarlaların merkezi
+function tarlaMerkezi() {
+  const noktalar = [];
+  parseller.forEach(p => (p.latlngs || []).forEach(n => noktalar.push(n)));
+  if (!noktalar.length) return BOLGE[aktifBolge].merkez;
+  return [
+    noktalar.reduce((s,n) => s + n[0], 0) / noktalar.length,
+    noktalar.reduce((s,n) => s + n[1], 0) / noktalar.length,
+  ];
+}
+
+window.havaAc = async () => {
+  havaEl.style.display = "block";
+  const bayat = !havaVeri || havaVeri.hata || (Date.now() - havaZaman > 15*60*1000); // 15 dk önbellek
+  if (bayat && !havaYukleniyor) {
+    havaYukleniyor = true;
+    havaCiz();
+    try {
+      const [lat, lng] = tarlaMerkezi();
+      const url = "https://api.open-meteo.com/v1/forecast" +
+        "?latitude=" + lat.toFixed(4) + "&longitude=" + lng.toFixed(4) +
+        "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m" +
+        "&hourly=temperature_2m,precipitation_probability,weather_code" +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max" +
+        "&timezone=auto&forecast_days=7";
+      const r = await fetch(url);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      havaVeri = await r.json();
+      havaVeri.konum = [lat, lng];
+      havaZaman = Date.now();
+    } catch(e) { havaVeri = { hata: e.message }; }
+    havaYukleniyor = false;
+  }
+  havaCiz();
+};
+window.havaKapat = () => { havaEl.style.display = "none"; };
+window.havaYenile = () => { havaVeri = null; havaAc(); };
+
+// İlaçlama uygunluğu: rüzgâr + yağış kuralları
+function ilaclamaUygunlugu(v) {
+  const t = dil === "tr";
+  const ruzgar = v.current.wind_speed_10m, hamle = v.current.wind_gusts_10m || 0;
+  const yagis = v.current.precipitation > 0;
+  const yagisOlasilik = (v.daily && v.daily.precipitation_probability_max) ? v.daily.precipitation_probability_max[0] : 0;
+  if (yagis || ruzgar > 20 || hamle > 30)
+    return { s:"no", m: t ? "🚫 İlaçlama için uygun değil — " + (yagis ? "yağış var" : "rüzgâr çok kuvvetli (" + Math.round(ruzgar) + " km/s)")
+                          : "🚫 Неподходящо за пръскане — " + (yagis ? "вали" : "силен вятър (" + Math.round(ruzgar) + " км/ч)") };
+  if (ruzgar > 15 || yagisOlasilik > 50)
+    return { s:"dik", m: t ? "⚠️ Dikkatli ol — " + (ruzgar > 15 ? "rüzgâr sınırda (" + Math.round(ruzgar) + " km/s)" : "yağış olasılığı %" + yagisOlasilik)
+                           : "⚠️ Внимание — " + (ruzgar > 15 ? "граничен вятър (" + Math.round(ruzgar) + " км/ч)" : yagisOlasilik + "% вероятност за дъжд") };
+  if (ruzgar < 3)
+    return { s:"dik", m: t ? "⚠️ Rüzgâr çok durgun (" + Math.round(ruzgar) + " km/s) — ters hava akımı (inversiyon) riski"
+                           : "⚠️ Твърде тихо (" + Math.round(ruzgar) + " км/ч) — риск от инверсия" };
+  return { s:"ok", m: t ? "✅ İlaçlama için uygun — rüzgâr " + Math.round(ruzgar) + " km/s, yağış yok"
+                        : "✅ Подходящо за пръскане — вятър " + Math.round(ruzgar) + " км/ч, без валежи" };
+}
+
+function havaCiz() {
+  const t = dil === "tr";
+  let h = '<div class="row" style="margin-bottom:6px"><button class="btn" onclick="havaKapat()">' + TR(S.haritayaDon) + '</button>' +
+    '<button class="btn" onclick="havaYenile()" style="margin-left:auto">🔄 ' + (t?"Yenile":"Обнови") + '</button></div>' +
+    '<h1 style="font-size:22px">🌦️ ' + (t?"Hava Durumu":"Метео прогноза") + '</h1>';
+
+  if (havaYukleniyor) {
+    h += '<div class="sub">' + (t?"Tahmin yükleniyor…":"Зареждане на прогнозата…") + '</div>';
+    havaIc.innerHTML = h; return;
+  }
+  if (!havaVeri || havaVeri.hata) {
+    h += '<div class="uyari">⚠️ ' + (t?"Hava durumu alınamadı":"Прогнозата не можа да се зареди") +
+      (havaVeri && havaVeri.hata ? " — " + esc(havaVeri.hata) : "") +
+      '<br><button class="btn" onclick="havaYenile()" style="margin-top:8px">' + (t?"Tekrar dene":"Опитай пак") + '</button></div>';
+    havaIc.innerHTML = h; return;
+  }
+
+  const v = havaVeri, c = v.current, kod = havaKod(c.weather_code);
+  h += '<div class="sub">📍 ' + (t?"Tarlaların merkezi":"Център на парцелите") + ' · ' +
+    v.konum[0].toFixed(3) + ", " + v.konum[1].toFixed(3) + ' · ' + parseller.length + ' ' + TR(S.parsel) + '</div>';
+
+  // Şimdiki durum
+  h += '<div class="havaSimdi"><div class="hIkon">' + kod.i + '</div><div>' +
+    '<div class="hDerece">' + Math.round(c.temperature_2m) + '°C</div>' +
+    '<div class="hAcik">' + (t?kod.tr:kod.bg) + ' · ' + (t?"hissedilen":"усеща се като") + ' ' + Math.round(c.apparent_temperature) + '°</div>' +
+    '</div></div>';
+  h += '<div class="havaDetayGrid">' +
+    '<div class="havaDetay"><div class="k">💨 ' + (t?"Rüzgâr":"Вятър") + '</div><div class="v">' + Math.round(c.wind_speed_10m) + ' km/s</div></div>' +
+    '<div class="havaDetay"><div class="k">🌪️ ' + (t?"Hamle":"Пориви") + '</div><div class="v">' + Math.round(c.wind_gusts_10m || 0) + ' km/s</div></div>' +
+    '<div class="havaDetay"><div class="k">💧 ' + (t?"Nem":"Влажност") + '</div><div class="v">%' + c.relative_humidity_2m + '</div></div>' +
+    '<div class="havaDetay"><div class="k">🌧️ ' + (t?"Yağış":"Валеж") + '</div><div class="v">' + c.precipitation + ' mm</div></div>' +
+    '</div>';
+
+  // İlaçlama uygunluğu
+  const u = ilaclamaUygunlugu(v);
+  h += '<div class="uyum ' + u.s + '" style="margin-top:10px">' + u.m + '</div>';
+
+  // Önümüzdeki 24 saat
+  h += '<div class="wikiBaslik" style="margin-top:16px">' + (t?"Önümüzdeki 24 saat":"Следващите 24 часа") + '</div><div class="havaSaatSerit">';
+  const simdiSaat = new Date();
+  let baslangic = v.hourly.time.findIndex(x => new Date(x) >= simdiSaat);
+  if (baslangic < 0) baslangic = 0;
+  for (let i = baslangic; i < Math.min(baslangic + 24, v.hourly.time.length); i++) {
+    const hk = havaKod(v.hourly.weather_code[i]);
+    const yo = v.hourly.precipitation_probability ? v.hourly.precipitation_probability[i] : 0;
+    h += '<div class="havaSaat"><div class="s">' + v.hourly.time[i].slice(11,16) + '</div>' +
+      '<div class="i">' + hk.i + '</div>' +
+      '<div class="t">' + Math.round(v.hourly.temperature_2m[i]) + '°</div>' +
+      (yo > 15 ? '<div class="y">💧%' + yo + '</div>' : '') + '</div>';
+  }
+  h += '</div>';
+
+  // 7 günlük tahmin
+  h += '<div class="wikiBaslik">' + (t?"7 günlük tahmin":"7-дневна прогноза") + '</div>';
+  const d = v.daily;
+  for (let i = 0; i < d.time.length; i++) {
+    const gk = havaKod(d.weather_code[i]);
+    const gun = new Date(d.time[i] + "T12:00");
+    const gunAd = i === 0 ? (t?"Bugün":"Днес") : i === 1 ? (t?"Yarın":"Утре")
+      : gun.toLocaleDateString(t?"tr-TR":"bg-BG", { weekday:"long" });
+    h += '<div class="havaGun"><div class="gAd">' + gunAd + '</div>' +
+      '<div class="gIkon">' + gk.i + '</div>' +
+      '<div class="gAcik">' + (t?gk.tr:gk.bg) +
+      (d.wind_speed_10m_max[i] > 20 ? ' · 💨' + Math.round(d.wind_speed_10m_max[i]) + ' km/s' : '') + '</div>' +
+      '<div class="gYagis">' + (d.precipitation_sum[i] > 0 || d.precipitation_probability_max[i] > 20
+        ? '💧' + (d.precipitation_sum[i] > 0 ? d.precipitation_sum[i] + 'mm' : '%' + d.precipitation_probability_max[i]) : '') + '</div>' +
+      '<div class="gMin">' + Math.round(d.temperature_2m_min[i]) + '°</div>' +
+      '<div class="gMax">' + Math.round(d.temperature_2m_max[i]) + '°</div></div>';
+  }
+  h += '<div class="sub" style="margin-top:12px;font-size:11px">' + (t?"Kaynak: Open-Meteo · 15 dk'da bir yenilenir":"Източник: Open-Meteo · обновява се на 15 мин") + '</div>';
+
+  havaIc.innerHTML = h;
+}
 
 </script>
 </body>
