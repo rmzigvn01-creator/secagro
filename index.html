@@ -317,12 +317,13 @@
     <div class="girisBaslikY">Firmanı seç 🏢</div>
     <div class="girisAyarMetin" style="display:block">
       <b id="firmaEposta"></b> ile giriş yaptın ama henüz bir firmaya bağlı değilsin.
-      Yeni firma kur (14 gün ücretsiz deneme) ya da yöneticinden aldığın davet koduyla firmana katıl.
+      Yeni firma kur ya da yöneticinden aldığın davet koduyla firmana katıl.
+      Kurulan firma, abonelik kodu girilene kadar salt okunur kalır.
     </div>
     <div class="formBox">
       <div style="font-size:13.5px;font-weight:800;margin-bottom:6px">🌱 Yeni firma kur</div>
       <input type="text" id="firmaAdiInput" placeholder="Firma adı (ör. Seç Tarım Ltd.)">
-      <button class="girisBtn" id="firmaKurBtn" onclick="firmaKur()" style="margin-top:10px">Firmayı kur — 14 gün ücretsiz</button>
+      <button class="girisBtn" id="firmaKurBtn" onclick="firmaKur()" style="margin-top:10px">Firmayı kur</button>
     </div>
     <div class="formBox">
       <div style="font-size:13.5px;font-weight:800;margin-bottom:6px">🎟️ Davet koduyla katıl</div>
@@ -331,6 +332,33 @@
     </div>
     <div id="firmaHataDiv" class="girisHata"></div>
     <div class="girisDegis"><a onclick="cikisYap()">← Başka hesapla gir</a></div>
+  </div>
+</div>
+
+<!-- Abonelik kilit ekranı: süre dolduysa uygulamanın tamamını kapatır -->
+<div id="kilitEkrani" style="display:none; position:fixed; inset:0; z-index:4500; background:linear-gradient(135deg,#1a2416,#0f1a0d); align-items:center; justify-content:center; padding:20px;">
+  <div class="girisKart">
+    <div class="girisLogo">
+      <svg width="46" height="46" viewBox="0 0 40 40" fill="none"><path d="M20 4C20 4 12 10 12 20C12 28 20 36 20 36C20 36 28 28 28 20C28 10 20 4 20 4Z" fill="#8BC34A"/><path d="M20 8C20 8 16 13 16 20C16 26 20 32 20 32" stroke="#3E7A3A" stroke-width="1.5"/></svg>
+      <div><div class="girisAd">SEÇ AGRO</div><div class="girisAlt">FIELD INTELLIGENCE | BG</div></div>
+    </div>
+    <div class="girisBaslikY">🔒 <span id="kilitBaslik">Abonelik aktif değil</span></div>
+    <div class="girisAyarMetin" style="display:block">
+      <b id="kilitFirmaAd"></b> — <span id="kilitMetin">aboneliğin süresi doldu. Bütün verilerin güvende;
+      yeni bir abonelik kodu girildiğinde kaldığın yerden devam edersin.</span>
+    </div>
+    <div id="kilitYonetici">
+      <div class="formBox">
+        <div style="font-size:13px;font-weight:800;margin-bottom:6px">🔑 Abonelik kodu gir</div>
+        <input type="text" id="kilitKodInput" placeholder="Satın aldığın kod (ör. AGRO-XXXX-XXXX)" style="text-transform:uppercase">
+        <button class="girisBtn" id="kilitKodBtn" onclick="kilitKodKullan()" style="margin-top:10px">Kodu uygula</button>
+      </div>
+    </div>
+    <div id="kilitUye" class="uyari" style="display:none">
+      Abonelik kodunu yalnızca firma yöneticisi girebilir. Lütfen yöneticinle iletişime geç.
+    </div>
+    <div id="kilitHata" class="girisHata"></div>
+    <div class="girisDegis"><a onclick="cikisYap()">Çıkış yap</a></div>
   </div>
 </div>
 
@@ -417,6 +445,75 @@ async function firmaUyeligiGetir() {
   } catch(e) { toast("⚠️ Üyelik sorgu hatası: " + e.message); return null; }
 }
 
+// Kalan süreyi okunur biçimde yaz: 12 gün / 5 saat / 8 dakika
+function kalanSureMetni(bitis) {
+  const ms = new Date(bitis) - new Date();
+  const t = dil === "tr";
+  if (ms <= 0) return t ? "doldu" : "изтече";
+  const dk = Math.ceil(ms / 60000);
+  if (dk < 60) return dk + (t ? " dakika" : " минути");
+  const saat = Math.ceil(ms / 3600000);
+  if (saat < 24) return saat + (t ? " saat" : " часа");
+  return Math.ceil(ms / 86400000) + (t ? " gün" : " дни");
+}
+
+// Abonelik kilit ekranı: süre yoksa uygulamanın tamamını kapat, yalnızca kod girilebilsin
+function kilitGuncelle() {
+  const el = document.getElementById("kilitEkrani");
+  if (!aktifFirma || !saltOkuma) { el.style.display = "none"; return; }
+  const t = dil === "tr";
+  document.getElementById("kilitFirmaAd").textContent = aktifFirma.ad;
+  document.getElementById("kilitBaslik").textContent = t ? "Abonelik aktif değil" : "Абонаментът не е активен";
+  document.getElementById("kilitMetin").textContent = t
+    ? "aboneliğin süresi doldu. Bütün verilerin güvende; yeni bir abonelik kodu girildiğinde kaldığın yerden devam edersin."
+    : "абонаментът изтече. Данните са запазени; въведи нов код и продължи оттам, докъдето стигна.";
+  document.getElementById("kilitYonetici").style.display = firmaRol === "yonetici" ? "block" : "none";
+  document.getElementById("kilitUye").style.display = firmaRol === "yonetici" ? "none" : "block";
+  document.getElementById("kilitHata").textContent = "";
+  el.style.display = "flex";
+}
+
+// Süre biterse anında kilitle (30 sn'de bir kontrol)
+let abonelikSayac = null;
+function abonelikIzle() {
+  clearInterval(abonelikSayac);
+  abonelikSayac = setInterval(() => {
+    if (!aktifFirma || saltOkuma) return;
+    if (new Date(aktifFirma.abonelik_bitis) <= new Date()) {
+      saltOkuma = true;
+      render();
+      kilitGuncelle(); // ekranı anında kilitle
+    }
+  }, 30000);
+}
+
+// Kod uygulama çekirdeği: RPC'yi çağır, süreyi ve kilidi tazele
+async function abonelikKodUygula(kod) {
+  const { data, error } = await sb.rpc("kod_kullan", { girilen_kod: kod });
+  if (error) throw error;
+  aktifFirma.abonelik_bitis = data.abonelik_bitis;
+  saltOkuma = new Date(data.abonelik_bitis) <= new Date();
+  abonelikIzle();
+  kilitGuncelle();
+  render();
+  toast("🔓 " + (dil==="tr"
+    ? "Abonelik uzatıldı! Yeni bitiş: " + new Date(data.abonelik_bitis).toLocaleString("tr-TR")
+    : "Абонаментът е удължен! Нов край: " + new Date(data.abonelik_bitis).toLocaleString("bg-BG")));
+}
+window.kilitKodKullan = async () => {
+  const kod = document.getElementById("kilitKodInput").value.trim();
+  const hataEl = document.getElementById("kilitHata");
+  if (!kod) { hataEl.textContent = dil==="tr" ? "Önce kodu yaz." : "Първо въведи кода."; return; }
+  hataEl.textContent = "";
+  const btn = document.getElementById("kilitKodBtn");
+  btn.disabled = true;
+  try {
+    await abonelikKodUygula(kod);
+    document.getElementById("kilitKodInput").value = "";
+  } catch(e) { hataEl.textContent = e.message || "Kod uygulanamadı."; }
+  btn.disabled = false;
+};
+
 // Firma belli olunca: abonelik kontrolü + veri yükleme + canlı senkron
 async function firmaIleBasla(firma, rol) {
   aktifFirma = firma; firmaRol = rol;
@@ -425,8 +522,10 @@ async function firmaIleBasla(firma, rol) {
   await bulutYukle();
   bulutHazir = true;
   realtimeBaslat();
+  abonelikIzle();
   render();
-  if (saltOkuma) toast("🔒 " + (dil==="tr" ? "Abonelik süresi doldu — veriler salt okunur." : "Абонаментът изтече — данните са само за четене."));
+  haritayaKonumlan(); // son çalışılan konumdan devam et
+  kilitGuncelle(); // süre yoksa uygulama açılmaz, kilit ekranı gelir
 }
 async function oturumKontrol() {
   if (!sb) return;
@@ -448,8 +547,8 @@ window.firmaKur = async () => {
   try {
     const { data, error } = await sb.rpc("firma_kur", { firma_adi: ad });
     if (error) throw error;
-    toast("🎉 " + ad + " kuruldu — 14 günlük ücretsiz deneme başladı!");
-    await firmaIleBasla(data, "yonetici");
+    toast("🎉 " + ad + " kuruldu — abonelik kodunu girerek kullanmaya başla!");
+    await firmaIleBasla(data, "yonetici"); // süre 0 olduğundan kilit ekranı kod soracak
   } catch(e) { firmaHata(e.message || "Firma kurulamadı."); }
   document.getElementById("firmaKurBtn").disabled = false;
 };
@@ -473,18 +572,27 @@ window.firmaPanelAc = async () => {
   if (!aktifFirma) return;
   const t = dil === "tr";
   const bitis = new Date(aktifFirma.abonelik_bitis);
-  const kalanGun = Math.ceil((bitis - new Date()) / 86400000);
-  const aktif = kalanGun > 0;
+  const kalanMs = bitis - new Date();
+  const aktif = kalanMs > 0;
+  const uyariRengi = kalanMs < 7 * 86400000;
   let html = '<div class="oBaslik">🏢 ' + esc(aktifFirma.ad) + '</div>';
   html += '<div class="bilgi" style="margin-bottom:8px"><div class="k">' + (t?"Abonelik":"Абонамент") + '</div>' +
-    '<div class="v" style="color:' + (aktif ? (kalanGun<=7?"var(--gold)":"var(--green)") : "var(--red)") + '">' +
-    (aktif ? '✅ ' + (t?"Aktif":"Активен") + ' — ' + kalanGun + ' ' + (t?"gün kaldı":"дни остават")
+    '<div class="v" style="color:' + (aktif ? (uyariRengi?"var(--gold)":"var(--green)") : "var(--red)") + '">' +
+    (aktif ? '✅ ' + (t?"Aktif":"Активен") + ' — ' + kalanSureMetni(bitis) + ' ' + (t?"kaldı":"остават")
            : '🔒 ' + (t?"Süresi doldu":"Изтекъл")) +
     '</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px">' +
-    (t?"Bitiş: ":"Край: ") + bitis.toLocaleDateString(t?"tr-TR":"bg-BG") + '</div></div>';
+    (t?"Bitiş: ":"Край: ") + bitis.toLocaleString(t?"tr-TR":"bg-BG") + '</div></div>';
   if (!aktif) html += '<div class="uyari">' + (t
-    ? "Aboneliği yenilemek için bizimle iletişime geç. Yenilenene kadar veriler salt okunur — hiçbir şey silinmez."
-    : "Свържи се с нас за подновяване. Дотогава данните са само за четене — нищо не се изтрива.") + '</div>';
+    ? "Süre bitti ama hiçbir veri silinmedi — her şey salt okunur duruyor. Yeni bir abonelik kodu girince kaldığın yerden devam edersin."
+    : "Времето изтече, но нищо не е изтрито — всичко е само за четене. Въведи нов код и продължи оттам, докъдето стигна.") + '</div>';
+  if (firmaRol === "yonetici") {
+    html += '<div class="formBox" style="margin:10px 0 0">' +
+      '<div style="font-size:12.5px;font-weight:800;margin-bottom:6px">🔑 ' + (t?"Abonelik kodu gir":"Въведи абонаментен код") + '</div>' +
+      '<div class="row" style="flex-wrap:nowrap">' +
+      '<input type="text" id="abonelikKodInput" placeholder="' + (t?"Kod (ör. AGRO-XXXX-XXXX)":"Код (напр. AGRO-XXXX-XXXX)") + '" style="text-transform:uppercase">' +
+      '<button class="btn green" id="abonelikKodBtn" onclick="abonelikKodKullan()" style="white-space:nowrap">' + (t?"Uygula":"Приложи") + '</button></div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:5px">' + (t?"Her kod tek kullanımlıktır; süresi mevcut sürenin üzerine eklenir.":"Всеки код е еднократен; времето се добавя към текущото.") + '</div></div>';
+  }
   if (firmaRol === "yonetici") {
     html += '<div class="ciftlikBar" style="margin-top:10px">🎟️ ' + (t?"Davet kodu":"Код за покана") + ': ' +
       '<code onclick="davetKopyala()" title="' + (t?"Kopyalamak için tıkla":"Кликни за копиране") + '">' + esc(aktifFirma.davet_kodu) + '</code> ' +
@@ -514,6 +622,17 @@ window.firmaPanelAc = async () => {
     if (el) el.textContent = "⚠️ " + e.message;
   }
 };
+window.abonelikKodKullan = async () => {
+  const kod = document.getElementById("abonelikKodInput").value.trim();
+  if (!kod) { toast("⚠️ " + (dil==="tr"?"Önce kodu yaz.":"Първо въведи кода.")); return; }
+  const btn = document.getElementById("abonelikKodBtn");
+  btn.disabled = true;
+  try {
+    await abonelikKodUygula(kod);
+    firmaPanelAc(); // paneli yeni bilgilerle tazele
+  } catch(e) { toast("⚠️ " + (e.message || "Kod uygulanamadı.")); }
+  btn.disabled = false;
+};
 window.davetKopyala = () => {
   if (!aktifFirma) return;
   navigator.clipboard.writeText(aktifFirma.davet_kodu).then(
@@ -536,9 +655,39 @@ async function bulutYukle() {
   try {
     const { data, error } = await sb.from("firma_veri").select("anahtar, veri").eq("firma_id", aktifFirma.id);
     if (error) throw error;
-    if (!data || !data.length) { if (!saltOkuma) await bulutKaydet(true); return; } // ilk kez: demo veriyi yaz
+    if (!data || !data.length) {
+      // Yeni firma: demo/örnek veri YOK — tamamen boş başla
+      parseller = []; stok = []; calisanlar = []; gorevler = []; stokHareket = []; wikiNotlar = {};
+      seciliId = null;
+      if (!saltOkuma) await bulutKaydet(true);
+      return;
+    }
     veriUygula(data);
   } catch(e) { toast("⚠️ Bulut yükleme hatası: " + e.message); }
+}
+
+// ---- Harita konumu hatırlama: son çalışılan yerden devam ----
+function konumAnahtari() { return "secagro_konum_" + aktifFirma.id + "_" + (aktifKullanici ? aktifKullanici.id : ""); }
+function haritayaKonumlan() {
+  if (!aktifFirma) return;
+  try {
+    const s = localStorage.getItem(konumAnahtari());
+    if (s) { const k = JSON.parse(s); map.setView([k.lat, k.lng], k.zoom); return; }
+  } catch(e){}
+  // kayıtlı konum yoksa: parselleri kadraja al, parsel de yoksa varsayılan bölge
+  if (parseller.length) {
+    const tum = [];
+    parseller.forEach(p => (p.latlngs||[]).forEach(n => tum.push(n)));
+    if (tum.length) { map.fitBounds(L.latLngBounds(tum), { padding:[40,40] }); return; }
+  }
+  map.setView(BOLGE[aktifBolge].merkez, BOLGE[aktifBolge].zoom);
+}
+function konumKaydet() {
+  if (!aktifFirma) return;
+  try {
+    const c = map.getCenter();
+    localStorage.setItem(konumAnahtari(), JSON.stringify({ lat:c.lat, lng:c.lng, zoom:map.getZoom() }));
+  } catch(e){}
 }
 function veriUygula(satirlar) {
   const harita = {}; satirlar.forEach(r => harita[r.anahtar] = r.veri);
@@ -1006,6 +1155,7 @@ function kiraBitisYili(p) {
 
 // ================= HARİTA =================
 const map = L.map("map", { zoomControl:true }).setView(BOLGE.bg.merkez, 14);
+map.on("moveend", () => konumKaydet()); // her hareket sonrası son konumu hatırla
 const uydu = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxNativeZoom:17, maxZoom:19, attribution:"Esri World Imagery" });
 const sokak = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxNativeZoom:19, maxZoom:19, attribution:"© OpenStreetMap" });
 uydu.addTo(map);
@@ -1285,17 +1435,18 @@ function render() {
 
   let html = logo;
   if (aktifFirma) {
-    const kalanGun = Math.ceil((new Date(aktifFirma.abonelik_bitis) - new Date()) / 86400000);
+    const kalanMs = new Date(aktifFirma.abonelik_bitis) - new Date();
     html += '<div class="sub" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
       '<b style="color:var(--ink)">🏢 ' + esc(aktifFirma.ad) + '</b>' +
       '<button class="cikisBtn" onclick="firmaPanelAc()">' + (dil==="tr"?"Firma":"Фирма") + '</button>' +
       (aktifKullanici ? '<span style="color:var(--faint)">☁️ ' + esc(aktifKullanici.email) + '</span> <button class="cikisBtn" onclick="cikisYap()">' + (dil==="tr"?"Çıkış":"Изход") + '</button>' : '') + '</div>';
     if (saltOkuma) {
       html += '<div style="background:#FBEAE8;border:1px solid #EFC7C2;color:var(--red);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;margin-bottom:8px">🔒 ' +
-        (dil==="tr" ? "Abonelik süresi doldu — veriler salt okunur. Yenilemek için bizimle iletişime geçin." : "Абонаментът изтече — само за четене. Свържете се с нас за подновяване.") + '</div>';
-    } else if (kalanGun <= 7) {
+        (dil==="tr" ? "Abonelik aktif değil — veriler salt okunur. " : "Абонаментът не е активен — само за четене. ") +
+        '<a style="cursor:pointer;text-decoration:underline" onclick="firmaPanelAc()">' + (dil==="tr" ? "Abonelik kodu gir →" : "Въведи код →") + '</a></div>';
+    } else if (kalanMs <= 7 * 86400000) {
       html += '<div style="background:var(--goldBg);border:1px solid #E8D9A8;color:var(--gold);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;margin-bottom:8px">⏳ ' +
-        (dil==="tr" ? "Aboneliğin bitmesine " + kalanGun + " gün kaldı." : "Остават " + kalanGun + " дни от абонамента.") + '</div>';
+        (dil==="tr" ? "Aboneliğin bitmesine " + kalanSureMetni(aktifFirma.abonelik_bitis) + " kaldı." : "Остават " + kalanSureMetni(aktifFirma.abonelik_bitis) + " от абонамента.") + '</div>';
     }
   }
   html += '<div class="sub" style="margin-top:6px">' + parseller.length + ' ' + TR(S.parsel) + ' · ' + toplamAlan + ' ' + (dil==="tr"?"da":"дка") + ' ' + TR(S.toplam) + '</div>';
