@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEÇ AGRO — Admin Paneli</title>
+<style>
+  :root { --ink:#26301F; --muted:#6E7566; --faint:#9AA091; --border:#E3E2D8;
+    --green:#3E7A3A; --greenBg:#E8F1E5; --gold:#B8860B; --goldBg:#F7EFD9;
+    --red:#B5443C; --redBg:#FBEAE8; --blue:#2C6E8F; --bg:#F5F4EF; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif,-apple-system,"Segoe UI",Helvetica,sans-serif; color:var(--ink); background:var(--bg); }
+  .ust { background:#141414; color:#fff; padding:14px 20px; display:flex; align-items:center; gap:12px; }
+  .ust .ad { font-size:18px; font-weight:800; letter-spacing:.06em; }
+  .ust .alt { font-size:9px; color:#8A8F86; letter-spacing:.2em; font-weight:600; margin-top:2px; }
+  .ust .sag { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; color:#8A8F86; }
+  .ic { max-width:1060px; margin:0 auto; padding:18px 16px 60px; }
+  .sekmeler { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+  .sekme { border:1px solid var(--border); background:#fff; color:var(--muted); font-size:13px; font-weight:700;
+    padding:8px 16px; border-radius:20px; cursor:pointer; }
+  .sekme.aktif { background:var(--green); color:#fff; border-color:var(--green); }
+  .kart { background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .kartlar { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .stat { background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px; }
+  .stat .k { font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+  .stat .v { font-size:26px; font-weight:800; margin-top:4px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.04em;
+    padding:6px 8px; border-bottom:2px solid var(--border); }
+  td { padding:9px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  tr:hover td { background:#FAFAF6; }
+  .chip { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+  .chip.aktif { background:var(--greenBg); color:var(--green); }
+  .chip.dolmus { background:var(--redBg); color:var(--red); }
+  .chip.az { background:var(--goldBg); color:var(--gold); }
+  button { font-family:inherit; cursor:pointer; }
+  .btn { padding:6px 11px; border-radius:8px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:600; }
+  .btn:hover { border-color:var(--green); color:var(--green); }
+  .btn.yesil { background:var(--green); color:#fff; border:none; }
+  .btn.yesil:hover { background:#356A32; color:#fff; }
+  .btn.kirmizi:hover { border-color:var(--red); color:var(--red); }
+  .mono { font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .kod { background:#F1F0EA; border:1px solid var(--border); border-radius:6px; padding:2px 8px; cursor:pointer; font-weight:700; }
+  .kod:hover { background:var(--green); color:#fff; }
+  input, select { font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; }
+  input:focus { outline:none; border-color:var(--green); }
+  label { font-size:11px; color:var(--muted); font-weight:700; display:block; margin:8px 0 4px; }
+  .satir { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+  #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:5000; background:rgba(18,22,16,.92);
+    color:#fff; font-size:13px; font-weight:600; padding:11px 18px; border-radius:12px; opacity:0; pointer-events:none;
+    transition:opacity .2s; max-width:90vw; }
+  #toast.gor { opacity:1; }
+  #girisEkrani { position:fixed; inset:0; z-index:6000; background:linear-gradient(135deg,#1a2416,#0f1a0d);
+    display:flex; align-items:center; justify-content:center; padding:20px; }
+  .girisKart { background:#fff; border-radius:20px; box-shadow:0 24px 70px rgba(0,0,0,.5); padding:32px; width:min(380px,94vw); }
+  .girisKart input { width:100%; margin-bottom:10px; padding:12px 14px; }
+  .girisBtn { width:100%; padding:12px; background:var(--green); color:#fff; border:none; border-radius:10px;
+    font-size:15px; font-weight:700; }
+  .hata { font-size:12.5px; color:var(--red); min-height:18px; margin-bottom:6px; }
+  .bosNot { color:var(--faint); font-size:13px; padding:14px 4px; }
+  .tabloSar { overflow-x:auto; }
+  @media (max-width:700px){ td, th { padding:7px 5px; } }
+</style>
+</head>
+<body>
+
+<div id="girisEkrani">
+  <div class="girisKart">
+    <div style="font-size:19px;font-weight:900;margin-bottom:2px">SEÇ AGRO</div>
+    <div style="font-size:10px;color:#8A8F86;letter-spacing:.2em;font-weight:700;margin-bottom:20px">ADMİN PANELİ</div>
+    <input type="email" id="gEmail" placeholder="Admin e-postası" autocomplete="username">
+    <input type="password" id="gSifre" placeholder="Şifre" autocomplete="current-password">
+    <div class="hata" id="gHata"></div>
+    <button class="girisBtn" id="gBtn" onclick="girisYap()">Giriş yap</button>
+  </div>
+</div>
+
+<div class="ust">
+  <div><div class="ad">SEÇ AGRO</div><div class="alt">ADMİN PANELİ</div></div>
+  <div class="sag"><span id="adminEposta"></span><button class="btn" onclick="cikis()">Çıkış</button></div>
+</div>
+
+<div class="ic">
+  <div class="sekmeler">
+    <button class="sekme aktif" data-s="ozet" onclick="sekmeAc('ozet')">📊 Özet</button>
+    <button class="sekme" data-s="firmalar" onclick="sekmeAc('firmalar')">🏢 Firmalar</button>
+    <button class="sekme" data-s="kodlar" onclick="sekmeAc('kodlar')">🎟️ Kodlar</button>
+    <button class="sekme" data-s="ai" onclick="sekmeAc('ai')">🤖 AI</button>
+  </div>
+  <div id="icerik" class="bosNot">Yükleniyor…</div>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://nfapuzgdnqxpolvyhjew.supabase.co";
+const SUPABASE_KEY = "sb_publishable_8m9DsmOq4BcrobpDW9HA7A_aEsWZLQ5";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let sekme = "ozet";
+const ic = document.getElementById("icerik");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("gor"); setTimeout(() => t.classList.remove("gor"), 3200); }
+const tarih = s => new Date(s).toLocaleString("tr-TR", { dateStyle:"short", timeStyle:"short" });
+
+function kalanMetin(bitis) {
+  const ms = new Date(bitis) - new Date();
+  if (ms <= 0) return "doldu";
+  const dk = Math.ceil(ms/60000);
+  if (dk < 60) return dk + " dk";
+  if (dk < 1440) return Math.ceil(dk/60) + " saat";
+  return Math.ceil(dk/1440) + " gün";
+}
+
+// ---- Giriş ----
+window.girisYap = async () => {
+  const email = document.getElementById("gEmail").value.trim();
+  const sifre = document.getElementById("gSifre").value;
+  const hata = document.getElementById("gHata");
+  if (!email || !sifre) { hata.textContent = "E-posta ve şifre gerekli."; return; }
+  document.getElementById("gBtn").disabled = true; hata.textContent = "";
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: sifre });
+    if (error) throw new Error(/Invalid/i.test(error.message) ? "E-posta veya şifre hatalı." : error.message);
+    await adminKontrol();
+  } catch(e) { hata.textContent = e.message; }
+  document.getElementById("gBtn").disabled = false;
+};
+async function adminKontrol() {
+  // admin_ozet yalnızca admin için çalışır → hem yetki testi hem ilk veri
+  const { data, error } = await sb.rpc("admin_ozet");
+  if (error) {
+    await sb.auth.signOut();
+    throw new Error(/yetkin yok/i.test(error.message) ? "Bu hesabın admin yetkisi yok." : error.message);
+  }
+  const { data: oturum } = await sb.auth.getSession();
+  document.getElementById("adminEposta").textContent = oturum?.session?.user?.email || "";
+  document.getElementById("girisEkrani").style.display = "none";
+  ozetCiz(data);
+}
+window.cikis = async () => { await sb.auth.signOut(); location.reload(); };
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if (data.session) { try { await adminKontrol(); } catch(e) { document.getElementById("gHata").textContent = e.message; } }
+})();
+
+// ---- Sekmeler ----
+window.sekmeAc = (s) => {
+  sekme = s;
+  document.querySelectorAll(".sekme").forEach(b => b.classList.toggle("aktif", b.dataset.s === s));
+  ic.innerHTML = '<div class="bosNot">Yükleniyor…</div>';
+  if (s === "ozet") yukleOzet();
+  if (s === "firmalar") yukleFirmalar();
+  if (s === "kodlar") yukleKodlar();
+  if (s === "ai") yukleAI();
+};
+async function rpc(ad, args) {
+  const { data, error } = await sb.rpc(ad, args || {});
+  if (error) throw new Error(error.message);
+  return data;
+}
+function hataCiz(e) { ic.innerHTML = '<div class="kart" style="color:var(--red)">⚠️ ' + esc(e.message) + '</div>'; }
+
+// ---- Özet ----
+async function yukleOzet() { try { ozetCiz(await rpc("admin_ozet")); } catch(e) { hataCiz(e); } }
+function ozetCiz(o) {
+  ic.innerHTML = '<div class="kartlar">' +
+    '<div class="stat"><div class="k">Toplam firma</div><div class="v">' + o.firma_toplam + '</div></div>' +
+    '<div class="stat"><div class="k">Aktif abonelik</div><div class="v" style="color:var(--green)">' + o.firma_aktif + '</div></div>' +
+    '<div class="stat"><div class="k">Süresi dolmuş</div><div class="v" style="color:var(--red)">' + o.firma_dolmus + '</div></div>' +
+    '<div class="stat"><div class="k">Toplam kullanıcı</div><div class="v">' + o.uye_toplam + '</div></div>' +
+    '<div class="stat"><div class="k">Boşta kod</div><div class="v" style="color:var(--gold)">' + o.kod_bos + '</div></div>' +
+    '<div class="stat"><div class="k">Bugünkü AI sorusu</div><div class="v" style="color:var(--blue)">' + o.ai_bugun + '</div></div>' +
+    '</div>';
+}
+
+// ---- Firmalar ----
+let firmalar = [];
+async function yukleFirmalar() { try { firmalar = await rpc("admin_firmalar"); firmalarCiz(); } catch(e) { hataCiz(e); } }
+function firmalarCiz() {
+  if (!firmalar.length) { ic.innerHTML = '<div class="kart bosNot">Henüz firma yok.</div>'; return; }
+  let h = '<div class="kart"><div class="tabloSar"><table><tr><th>Firma</th><th>Üye</th><th>Davet kodu</th><th>Abonelik</th><th>Bitiş</th><th style="text-align:right">İşlemler</th></tr>';
+  firmalar.forEach(f => {
+    const ms = new Date(f.abonelik_bitis) - new Date();
+    const durum = ms <= 0 ? '<span class="chip dolmus">🔒 doldu</span>'
+      : ms < 7*86400000 ? '<span class="chip az">⏳ ' + kalanMetin(f.abonelik_bitis) + '</span>'
+      : '<span class="chip aktif">✅ ' + kalanMetin(f.abonelik_bitis) + '</span>';
+    h += '<tr><td><b>' + esc(f.ad) + '</b><div style="font-size:11px;color:var(--faint)">kayıt: ' + tarih(f.olusturuldu) + '</div></td>' +
+      '<td><button class="btn" onclick="uyeGoster(\'' + f.id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">' + f.uye_sayisi + ' üye</button></td>' +
+      '<td><span class="kod mono" onclick="kopyala(\'' + esc(f.davet_kodu) + '\')">' + esc(f.davet_kodu) + '</span></td>' +
+      '<td>' + durum + '</td>' +
+      '<td style="font-size:12px">' + tarih(f.abonelik_bitis) + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' +
+      '<button class="btn" onclick="sureEkle(\'' + f.id + '\',30)">+30g</button> ' +
+      '<button class="btn" onclick="sureEkleSor(\'' + f.id + '\')">+Özel</button> ' +
+      '<button class="btn kirmizi" onclick="kilitle(\'' + f.id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">Kilitle</button> ' +
+      '<button class="btn kirmizi" onclick="firmaSil(\'' + f.id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">Sil</button>' +
+      '</td></tr>';
+  });
+  h += '</table></div></div><div id="uyeKutu"></div>';
+  ic.innerHTML = h;
+}
+window.kopyala = (m) => navigator.clipboard.writeText(m).then(() => toast("📋 Kopyalandı: " + m), () => toast(m));
+window.sureEkle = async (id, gun) => {
+  try { await rpc("admin_sure_ekle", { p_firma:id, p_gun:gun }); toast("✅ " + gun + " gün eklendi"); yukleFirmalar(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+window.sureEkleSor = (id) => {
+  const g = parseInt(prompt("Kaç gün eklensin? (negatif yazarsan süre kısalır)", "30"));
+  if (!isNaN(g) && g !== 0) sureEkle(id, g);
+};
+window.kilitle = async (id, ad) => {
+  if (!confirm('"' + ad + '" firmasının aboneliği ŞİMDİ bitirilsin mi? (Verileri silinmez, salt okunur kalır)')) return;
+  try { await rpc("admin_sure_sifirla", { p_firma:id }); toast("🔒 Kilitlendi"); yukleFirmalar(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+window.firmaSil = async (id, ad) => {
+  if (!confirm('"' + ad + '" firması TÜM verileriyle birlikte silinsin mi? BU GERİ ALINAMAZ!')) return;
+  if (prompt('Onay için firma adını aynen yaz:') !== ad) { toast("İptal edildi — ad eşleşmedi."); return; }
+  try { await rpc("admin_firma_sil", { p_firma:id }); toast("🗑 Firma silindi"); yukleFirmalar(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+window.uyeGoster = async (id, ad) => {
+  try {
+    const uyeler = await rpc("admin_uyeler", { p_firma:id });
+    let h = '<div class="kart"><b>👥 ' + esc(ad) + ' üyeleri</b><table style="margin-top:8px"><tr><th>E-posta</th><th>Rol</th><th>Katılım</th></tr>';
+    uyeler.forEach(u => { h += '<tr><td>' + esc(u.eposta) + '</td><td>' + (u.rol === "yonetici" ? "👑 Yönetici" : "👤 Üye") + '</td><td style="font-size:12px">' + tarih(u.olusturuldu) + '</td></tr>'; });
+    h += '</table></div>';
+    document.getElementById("uyeKutu").innerHTML = h;
+  } catch(e) { toast("⚠️ " + e.message); }
+};
+
+// ---- Kodlar ----
+async function yukleKodlar() {
+  try {
+    const kodlar = await rpc("admin_kodlar");
+    let h = '<div class="kart"><b>➕ Yeni kod üret</b><div class="satir" style="margin-top:8px">' +
+      '<div><label>Süre (gün)</label><input type="number" id="kGun" value="30" min="1" style="width:100px"></div>' +
+      '<div><label>Adet</label><input type="number" id="kAdet" value="1" min="1" max="50" style="width:80px"></div>' +
+      '<button class="btn yesil" onclick="kodUret()">Üret</button></div>' +
+      '<div id="yeniKodlar" style="margin-top:10px"></div></div>';
+    h += '<div class="kart"><div class="tabloSar"><table><tr><th>Kod</th><th>Süre</th><th>Durum</th><th>Oluşturma</th><th style="text-align:right">İşlem</th></tr>';
+    if (!kodlar.length) h += '<tr><td colspan="5" class="bosNot">Kod yok.</td></tr>';
+    kodlar.forEach(k => {
+      const gun = k.sure_dakika >= 1440 ? Math.round(k.sure_dakika/1440) + " gün" : k.sure_dakika + " dk";
+      h += '<tr><td><span class="kod mono" onclick="kopyala(\'' + esc(k.kod) + '\')">' + esc(k.kod) + '</span></td>' +
+        '<td>' + gun + '</td>' +
+        '<td>' + (k.kullanilma_zamani
+          ? '<span class="chip dolmus">kullanıldı</span><div style="font-size:11px;color:var(--faint)">' + esc(k.kullanan || "?") + ' · ' + tarih(k.kullanilma_zamani) + '</div>'
+          : '<span class="chip aktif">boşta</span>') + '</td>' +
+        '<td style="font-size:12px">' + tarih(k.olusturuldu) + '</td>' +
+        '<td style="text-align:right">' + (k.kullanilma_zamani ? '' : '<button class="btn kirmizi" onclick="kodSil(\'' + esc(k.kod) + '\')">Sil</button>') + '</td></tr>';
+    });
+    h += '</table></div></div>';
+    ic.innerHTML = h;
+  } catch(e) { hataCiz(e); }
+}
+window.kodUret = async () => {
+  const gun = parseInt(document.getElementById("kGun").value), adet = parseInt(document.getElementById("kAdet").value);
+  if (isNaN(gun) || isNaN(adet)) return;
+  try {
+    const yeni = await rpc("admin_kod_uret", { p_gun:gun, p_adet:adet });
+    document.getElementById("yeniKodlar").innerHTML = '<b style="font-size:12px;color:var(--green)">Üretilen kodlar (kopyalamak için tıkla):</b><br>' +
+      yeni.map(k => '<span class="kod mono" style="display:inline-block;margin:4px 4px 0 0" onclick="kopyala(\'' + esc(k) + '\')">' + esc(k) + '</span>').join("");
+    toast("✅ " + yeni.length + " kod üretildi");
+    setTimeout(yukleKodlar, 1800);
+  } catch(e) { toast("⚠️ " + e.message); }
+};
+window.kodSil = async (kod) => {
+  if (!confirm(kod + " silinsin mi?")) return;
+  try { await rpc("admin_kod_sil", { p_kod:kod }); toast("🗑 Silindi"); yukleKodlar(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+
+// ---- AI ----
+async function yukleAI() {
+  try {
+    const [ayar, kullanim] = await Promise.all([rpc("admin_ai_ayarlar"), rpc("admin_ai_kullanim")]);
+    let h = '<div class="kart"><b>⚙️ AI ayarları</b>' +
+      '<label>Gemini API anahtarı (mevcut: <span class="mono">' + esc(ayar.anahtar_maskeli) + '</span>)</label>' +
+      '<div class="satir"><input id="aiAnahtar" placeholder="Yeni anahtar (boş bırak = değiştirme)" style="flex:1;min-width:220px">' +
+      '<button class="btn yesil" onclick="aiKaydet(\'gemini_api_key\',\'aiAnahtar\')">Kaydet</button></div>' +
+      '<label>Model zinciri (virgülle; sırayla denenir)</label>' +
+      '<div class="satir"><input id="aiModel" value="' + esc(ayar.model || "") + '" style="flex:1;min-width:220px">' +
+      '<button class="btn yesil" onclick="aiKaydet(\'gemini_model\',\'aiModel\')">Kaydet</button></div></div>';
+    h += '<div class="kart"><b>📈 Son 7 gün AI kullanımı</b><div class="tabloSar"><table style="margin-top:8px"><tr><th>Kullanıcı</th><th>Gün</th><th>Soru</th></tr>';
+    if (!kullanim.length) h += '<tr><td colspan="3" class="bosNot">Kullanım yok.</td></tr>';
+    kullanim.forEach(k => { h += '<tr><td>' + esc(k.eposta) + '</td><td>' + k.gun + '</td><td><b>' + k.sayi + '</b>/5</td></tr>'; });
+    h += '</table></div></div>';
+    ic.innerHTML = h;
+  } catch(e) { hataCiz(e); }
+}
+window.aiKaydet = async (ad, inputId) => {
+  const deger = document.getElementById(inputId).value.trim();
+  if (!deger) { toast("Değer boş."); return; }
+  try { await rpc("admin_ai_ayarla", { p_ad:ad, p_deger:deger }); toast("✅ Kaydedildi"); yukleAI(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && document.getElementById("girisEkrani").style.display !== "none") girisYap();
+});
+</script>
+</body>
+</html>
