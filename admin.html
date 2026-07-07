@@ -84,8 +84,10 @@
   <div class="sekmeler">
     <button class="sekme aktif" data-s="ozet" onclick="sekmeAc('ozet')">📊 Özet</button>
     <button class="sekme" data-s="firmalar" onclick="sekmeAc('firmalar')">🏢 Firmalar</button>
+    <button class="sekme" data-s="kullanicilar" onclick="sekmeAc('kullanicilar')">👥 Kullanıcılar</button>
     <button class="sekme" data-s="kodlar" onclick="sekmeAc('kodlar')">🎟️ Kodlar</button>
     <button class="sekme" data-s="ai" onclick="sekmeAc('ai')">🤖 AI</button>
+    <button class="sekme" data-s="ayarlar" onclick="sekmeAc('ayarlar')">⚙️ Ayarlar</button>
   </div>
   <div id="icerik" class="bosNot">Yükleniyor…</div>
 </div>
@@ -151,8 +153,10 @@ window.sekmeAc = (s) => {
   ic.innerHTML = '<div class="bosNot">Yükleniyor…</div>';
   if (s === "ozet") yukleOzet();
   if (s === "firmalar") yukleFirmalar();
+  if (s === "kullanicilar") yukleKullanicilar();
   if (s === "kodlar") yukleKodlar();
   if (s === "ai") yukleAI();
+  if (s === "ayarlar") yukleAyarlar();
 };
 async function rpc(ad, args) {
   const { data, error } = await sb.rpc(ad, args || {});
@@ -175,31 +179,104 @@ function ozetCiz(o) {
 }
 
 // ---- Firmalar ----
-let firmalar = [];
+let firmalar = [], firmaAra = "", acikFirma = null;
 async function yukleFirmalar() { try { firmalar = await rpc("admin_firmalar"); firmalarCiz(); } catch(e) { hataCiz(e); } }
+window.firmaAraDegis = (v) => { firmaAra = v.toLowerCase(); firmalarCiz(); };
 function firmalarCiz() {
-  if (!firmalar.length) { ic.innerHTML = '<div class="kart bosNot">Henüz firma yok.</div>'; return; }
-  let h = '<div class="kart"><div class="tabloSar"><table><tr><th>Firma</th><th>Üye</th><th>Davet kodu</th><th>Abonelik</th><th>Bitiş</th><th style="text-align:right">İşlemler</th></tr>';
-  firmalar.forEach(f => {
+  let h = '<div class="kart" style="padding:10px 14px"><input placeholder="🔍 Firma ara…" value="' + esc(firmaAra) + '" oninput="firmaAraDegis(this.value)" style="width:100%;border:none;font-size:14px;outline:none"></div>';
+  const liste = firmalar.filter(f => !firmaAra || f.ad.toLowerCase().includes(firmaAra) || (f.davet_kodu||"").toLowerCase().includes(firmaAra));
+  if (!liste.length) { ic.innerHTML = h + '<div class="kart bosNot">' + (firmalar.length ? "Aramaya uyan firma yok." : "Henüz firma yok.") + '</div>'; return; }
+  h += '<div class="kart"><div class="tabloSar"><table><tr><th>Firma</th><th>Üye</th><th>Davet kodu</th><th>Abonelik</th><th>Bitiş</th><th style="text-align:right">İşlemler</th></tr>';
+  liste.forEach(f => {
     const ms = new Date(f.abonelik_bitis) - new Date();
     const durum = ms <= 0 ? '<span class="chip dolmus">🔒 doldu</span>'
       : ms < 7*86400000 ? '<span class="chip az">⏳ ' + kalanMetin(f.abonelik_bitis) + '</span>'
       : '<span class="chip aktif">✅ ' + kalanMetin(f.abonelik_bitis) + '</span>';
     h += '<tr><td><b>' + esc(f.ad) + '</b><div style="font-size:11px;color:var(--faint)">kayıt: ' + tarih(f.olusturuldu) + '</div></td>' +
-      '<td><button class="btn" onclick="uyeGoster(\'' + f.id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">' + f.uye_sayisi + ' üye</button></td>' +
+      '<td>' + f.uye_sayisi + '</td>' +
       '<td><span class="kod mono" onclick="kopyala(\'' + esc(f.davet_kodu) + '\')">' + esc(f.davet_kodu) + '</span></td>' +
       '<td>' + durum + '</td>' +
       '<td style="font-size:12px">' + tarih(f.abonelik_bitis) + '</td>' +
       '<td style="text-align:right;white-space:nowrap">' +
       '<button class="btn" onclick="sureEkle(\'' + f.id + '\',30)">+30g</button> ' +
       '<button class="btn" onclick="sureEkleSor(\'' + f.id + '\')">+Özel</button> ' +
-      '<button class="btn kirmizi" onclick="kilitle(\'' + f.id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">Kilitle</button> ' +
-      '<button class="btn kirmizi" onclick="firmaSil(\'' + f.id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">Sil</button>' +
+      '<button class="btn yesil" onclick="firmaYonet(\'' + f.id + '\')">Yönet</button>' +
       '</td></tr>';
   });
-  h += '</table></div></div><div id="uyeKutu"></div>';
+  h += '</table></div></div><div id="firmaDetay"></div>';
   ic.innerHTML = h;
+  if (acikFirma) firmaYonet(acikFirma, true);
 }
+
+// Firma detay/yönetim kartı
+window.firmaYonet = async (id, sessiz) => {
+  acikFirma = id;
+  const f = firmalar.find(x => x.id === id);
+  if (!f) return;
+  const kutu = document.getElementById("firmaDetay");
+  if (!sessiz) { kutu.innerHTML = '<div class="kart bosNot">Yükleniyor…</div>'; kutu.scrollIntoView({behavior:"smooth", block:"nearest"}); }
+  try {
+    const [uyeler, veri] = await Promise.all([rpc("admin_uyeler", { p_firma:id }), rpc("admin_firma_veri", { p_firma:id })]);
+    const kullanicilar = await rpc("admin_kullanicilar");
+    const uyeIdler = {}; kullanicilar.forEach(k => { if (k.firma_id === id) uyeIdler[k.eposta] = k.id; });
+    let h = '<div class="kart"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:15px">🏢 ' + esc(f.ad) + '</b>' +
+      '<button class="btn" onclick="firmaAdDegis(\'' + id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">✏️ Adı değiştir</button>' +
+      '<button class="btn" onclick="davetYenile(\'' + id + '\')">🔁 Davet kodunu yenile</button>' +
+      '<button class="btn kirmizi" onclick="kilitle(\'' + id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">🔒 Kilitle</button>' +
+      '<button class="btn kirmizi" onclick="veriSifirla(\'' + id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">🧹 Verileri sıfırla</button>' +
+      '<button class="btn kirmizi" onclick="firmaSil(\'' + id + '\',\'' + esc(f.ad).replace(/'/g,"") + '\')">🗑 Firmayı sil</button>' +
+      '<button class="btn" style="margin-left:auto" onclick="acikFirma=null;document.getElementById(\'firmaDetay\').innerHTML=\'\'">Kapat</button></div>';
+    h += '<label style="margin-top:12px">Üyeler</label><div class="tabloSar"><table><tr><th>E-posta</th><th>Rol</th><th>Katılım</th><th style="text-align:right">İşlem</th></tr>';
+    uyeler.forEach(u => {
+      const uid = uyeIdler[u.eposta] || "";
+      h += '<tr><td>' + esc(u.eposta) + '</td><td>' + (u.rol === "yonetici" ? "👑 Yönetici" : "👤 Üye") + '</td>' +
+        '<td style="font-size:12px">' + tarih(u.olusturuldu) + '</td>' +
+        '<td style="text-align:right;white-space:nowrap">' + (uid
+          ? '<button class="btn" onclick="uyeRol(\'' + id + '\',\'' + uid + '\',\'' + (u.rol === "yonetici" ? "uye" : "yonetici") + '\')">' + (u.rol === "yonetici" ? "Üye yap" : "Yönetici yap") + '</button> ' +
+            '<button class="btn kirmizi" onclick="uyeCikar(\'' + id + '\',\'' + uid + '\',\'' + esc(u.eposta) + '\')">Çıkar</button>'
+          : '') + '</td></tr>';
+    });
+    h += '</table></div>';
+    h += '<label style="margin-top:12px">Veri özeti</label>';
+    if (!veri.length) h += '<div class="bosNot">Bu firmanın bulutta verisi yok.</div>';
+    else {
+      h += '<div class="tabloSar"><table><tr><th>Bölüm</th><th>Kayıt</th><th>Boyut</th><th>Son güncelleme</th><th>Güncelleyen</th></tr>';
+      veri.forEach(v => {
+        h += '<tr><td class="mono">' + esc(v.anahtar) + '</td><td>' + (v.kayit ?? "—") + '</td><td>' + v.boyut_kb + ' KB</td>' +
+          '<td style="font-size:12px">' + (v.guncellendi ? tarih(v.guncellendi) : "—") + '</td><td style="font-size:12px">' + esc(v.guncelleyen || "—") + '</td></tr>';
+      });
+      h += '</table></div>';
+    }
+    h += '</div>';
+    kutu.innerHTML = h;
+  } catch(e) { kutu.innerHTML = '<div class="kart" style="color:var(--red)">⚠️ ' + esc(e.message) + '</div>'; }
+};
+window.firmaAdDegis = async (id, eski) => {
+  const yeni = prompt("Yeni firma adı:", eski);
+  if (!yeni || yeni.trim() === eski) return;
+  try { await rpc("admin_firma_ad", { p_firma:id, p_ad:yeni.trim() }); toast("✏️ Ad güncellendi"); await yukleFirmalar(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+window.davetYenile = async (id) => {
+  if (!confirm("Davet kodu yenilensin mi? Eski kod geçersiz olur.")) return;
+  try { const kod = await rpc("admin_davet_yenile", { p_firma:id }); toast("🔁 Yeni kod: " + kod); await yukleFirmalar(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+window.uyeRol = async (fid, uid, rol) => {
+  try { await rpc("admin_uye_rol", { p_firma:fid, p_user:uid, p_rol:rol }); toast("✅ Rol güncellendi"); firmaYonet(fid, true); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+window.uyeCikar = async (fid, uid, eposta) => {
+  if (!confirm(eposta + " firmadan çıkarılsın mı?")) return;
+  try { await rpc("admin_uye_cikar", { p_firma:fid, p_user:uid }); toast("👋 Üye çıkarıldı"); await yukleFirmalar(); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
+window.veriSifirla = async (id, ad) => {
+  if (!confirm('"' + ad + '" firmasının TÜM tarla/stok/takvim verileri silinsin mi? Firma ve üyeler kalır ama veriler GERİ GELMEZ!')) return;
+  if (prompt('Onay için firma adını aynen yaz:') !== ad) { toast("İptal edildi — ad eşleşmedi."); return; }
+  try { await rpc("admin_veri_sifirla", { p_firma:id }); toast("🧹 Veriler sıfırlandı"); firmaYonet(id, true); }
+  catch(e) { toast("⚠️ " + e.message); }
+};
 window.kopyala = (m) => navigator.clipboard.writeText(m).then(() => toast("📋 Kopyalandı: " + m), () => toast(m));
 window.sureEkle = async (id, gun) => {
   try { await rpc("admin_sure_ekle", { p_firma:id, p_gun:gun }); toast("✅ " + gun + " gün eklendi"); yukleFirmalar(); }
@@ -217,17 +294,53 @@ window.kilitle = async (id, ad) => {
 window.firmaSil = async (id, ad) => {
   if (!confirm('"' + ad + '" firması TÜM verileriyle birlikte silinsin mi? BU GERİ ALINAMAZ!')) return;
   if (prompt('Onay için firma adını aynen yaz:') !== ad) { toast("İptal edildi — ad eşleşmedi."); return; }
-  try { await rpc("admin_firma_sil", { p_firma:id }); toast("🗑 Firma silindi"); yukleFirmalar(); }
+  try { await rpc("admin_firma_sil", { p_firma:id }); toast("🗑 Firma silindi"); acikFirma = null; yukleFirmalar(); }
   catch(e) { toast("⚠️ " + e.message); }
 };
-window.uyeGoster = async (id, ad) => {
+
+// ---- Kullanıcılar ----
+async function yukleKullanicilar() {
   try {
-    const uyeler = await rpc("admin_uyeler", { p_firma:id });
-    let h = '<div class="kart"><b>👥 ' + esc(ad) + ' üyeleri</b><table style="margin-top:8px"><tr><th>E-posta</th><th>Rol</th><th>Katılım</th></tr>';
-    uyeler.forEach(u => { h += '<tr><td>' + esc(u.eposta) + '</td><td>' + (u.rol === "yonetici" ? "👑 Yönetici" : "👤 Üye") + '</td><td style="font-size:12px">' + tarih(u.olusturuldu) + '</td></tr>'; });
-    h += '</table></div>';
-    document.getElementById("uyeKutu").innerHTML = h;
-  } catch(e) { toast("⚠️ " + e.message); }
+    const liste = await rpc("admin_kullanicilar");
+    let h = '<div class="kart"><b>👥 Tüm kullanıcılar (' + liste.length + ')</b><div class="tabloSar"><table style="margin-top:8px">' +
+      '<tr><th>E-posta</th><th>Firma</th><th>Rol</th><th>Kayıt</th><th>Son giriş</th></tr>';
+    if (!liste.length) h += '<tr><td colspan="5" class="bosNot">Kullanıcı yok.</td></tr>';
+    liste.forEach(k => {
+      h += '<tr><td>' + esc(k.eposta) + (k.admin ? ' <span class="chip az">ADMİN</span>' : '') + '</td>' +
+        '<td>' + (k.firma ? esc(k.firma) : '<span style="color:var(--faint)">—</span>') + '</td>' +
+        '<td>' + (k.rol === "yonetici" ? "👑 Yönetici" : k.rol === "uye" ? "👤 Üye" : "—") + '</td>' +
+        '<td style="font-size:12px">' + tarih(k.kayit) + '</td>' +
+        '<td style="font-size:12px">' + (k.son_giris ? tarih(k.son_giris) : "hiç girmedi") + '</td></tr>';
+    });
+    h += '</table></div><div style="font-size:11px;color:var(--faint);margin-top:8px">Yeni hesap açma: Supabase → Authentication → Users → Add user. Üyelik/rol işlemleri Firmalar sekmesindeki "Yönet" kartından yapılır.</div></div>';
+    ic.innerHTML = h;
+  } catch(e) { hataCiz(e); }
+}
+
+// ---- Ayarlar ----
+async function yukleAyarlar() {
+  try {
+    const a = await rpc("admin_ayarlar_getir");
+    let h = '<div class="kart"><b>📢 Duyuru</b>' +
+      '<label>Uygulamada tüm kullanıcılara gösterilir (boş bırak = duyuru yok)</label>' +
+      '<div class="satir"><input id="ayDuyuru" value="' + esc(a.duyuru || "") + '" placeholder="Ör: Pazar günü 02:00-04:00 arası bakım yapılacaktır" style="flex:1;min-width:240px">' +
+      '<button class="btn yesil" onclick="ayarKaydet(\'duyuru\',document.getElementById(\'ayDuyuru\').value)">Yayınla</button>' +
+      '<button class="btn" onclick="ayarKaydet(\'duyuru\',\'\')">Kaldır</button></div></div>';
+    h += '<div class="kart"><b>🚪 Yeni firma kaydı</b>' +
+      '<label>Kapalıyken kimse yeni firma kuramaz; mevcut firmalar çalışmaya devam eder</label>' +
+      '<div class="satir"><select id="ayKayit"><option value="acik"' + (a.kayit_acik !== "kapali" ? " selected" : "") + '>Açık</option>' +
+      '<option value="kapali"' + (a.kayit_acik === "kapali" ? " selected" : "") + '>Kapalı</option></select>' +
+      '<button class="btn yesil" onclick="ayarKaydet(\'kayit_acik\',document.getElementById(\'ayKayit\').value)">Kaydet</button></div></div>';
+    h += '<div class="kart"><b>🤖 AI günlük soru hakkı</b>' +
+      '<label>Hesap başına günlük soru sayısı (AI sekmesindeki anahtar/model ayarlarından bağımsız)</label>' +
+      '<div class="satir"><input type="number" id="ayAiHak" value="' + esc(a.ai_gunluk_hak || "5") + '" min="0" max="1000" style="width:100px">' +
+      '<button class="btn yesil" onclick="ayarKaydet(\'ai_gunluk_hak\',document.getElementById(\'ayAiHak\').value)">Kaydet</button></div></div>';
+    ic.innerHTML = h;
+  } catch(e) { hataCiz(e); }
+}
+window.ayarKaydet = async (ad, deger) => {
+  try { await rpc("admin_ayar_yaz", { p_ad:ad, p_deger:String(deger).trim() }); toast("✅ Kaydedildi"); yukleAyarlar(); }
+  catch(e) { toast("⚠️ " + e.message); }
 };
 
 // ---- Kodlar ----
