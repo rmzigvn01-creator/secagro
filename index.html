@@ -541,6 +541,16 @@ async function firmaIleBasla(firma, rol) {
   render();
   haritayaKonumlan(); // son çalışılan konumdan devam et
   kilitGuncelle(); // süre yoksa uygulama açılmaz, kilit ekranı gelir
+  duyuruYukle(); // admin duyurusu varsa göster
+}
+
+// Admin panelinden yayınlanan duyuru
+let duyuruMetni = "";
+async function duyuruYukle() {
+  try {
+    const { data, error } = await sb.rpc("sistem_duyuru");
+    if (!error && data && data.trim()) { duyuruMetni = data.trim(); render(); }
+  } catch(e){}
 }
 async function oturumKontrol() {
   if (!sb) return;
@@ -1449,6 +1459,9 @@ function render() {
     '</div></div>';
 
   let html = logo;
+  if (duyuruMetni) {
+    html += '<div style="background:#E7F0F5;border:1px solid #C4DBE7;color:var(--blue);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:600;margin:8px 0">📢 ' + esc(duyuruMetni) + '</div>';
+  }
   if (aktifFirma) {
     const kalanMs = new Date(aktifFirma.abonelik_bitis) - new Date();
     html += '<div class="sub" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
@@ -3197,6 +3210,7 @@ const aiEl = document.getElementById("aiEkrani");
 const aiIc = document.getElementById("aiIcerik");
 let aiGecmis = [];      // { rol:"ben"|"bot", metin }
 let aiKalan = null;     // bugünkü kalan hak
+let aiLimit = 5;        // günlük hak (sunucudan gelir, admin panelinden değişir)
 let aiBekliyor = false;
 
 let aiSayacInterval = null;
@@ -3205,7 +3219,7 @@ window.aiAc = async () => {
   aiCiz();
   try {
     const { data, error } = await sb.rpc("ai_hak");
-    if (!error) { aiKalan = data; aiCiz(); }
+    if (!error && data) { aiKalan = data.kalan; aiLimit = data.limit || 5; aiCiz(); }
   } catch(e){}
   // yenilenme sayacını dakikada bir tazele
   clearInterval(aiSayacInterval);
@@ -3255,9 +3269,10 @@ window.aiSor = async () => {
     const temiz = (data.cevap || "").replace(/\[Bağlam[\s\S]*?\]/g, "").trim();
     aiGecmis.push({ rol:"bot", metin: temiz });
     aiKalan = data.kalan;
+    if (data.limit) aiLimit = data.limit;
   } catch(e) {
     aiGecmis.push({ rol:"bot", metin: "⚠️ " + (e.message || (t?"Bir sorun oluştu.":"Възникна проблем.")) });
-    if (/5 soru|доволно/i.test(e.message || "")) aiKalan = 0;
+    if (/soru hakkın doldu/i.test(e.message || "")) aiKalan = 0;
   }
   aiBekliyor = false;
   aiCiz();
@@ -3273,12 +3288,12 @@ function aiCiz() {
   let h = '<div class="row" style="margin-bottom:6px"><button class="btn" onclick="aiKapat()">' + TR(S.haritayaDon) + '</button>' +
     (aiGecmis.length ? '<button class="btn" onclick="aiTemizle()">🗑 ' + (t?"Sohbeti temizle":"Изчисти чата") + '</button>' : '') +
     '<span class="aiHakChip' + (aiKalan === 0 ? " bitti" : "") + '" style="margin-left:auto">' +
-    (aiKalan === null ? "…" : (t ? "Bugün kalan: " + aiKalan + "/5" : "Днес остават: " + aiKalan + "/5")) +
-    (aiKalan !== null && aiKalan < 5 ? ' · 🔄 <span id="aiYenilenme">' + aiYenilenmeMetni() + '</span>' : '') + '</span></div>' +
+    (aiKalan === null ? "…" : (t ? "Bugün kalan: " + aiKalan + "/" + aiLimit : "Днес остават: " + aiKalan + "/" + aiLimit)) +
+    (aiKalan !== null && aiKalan < aiLimit ? ' · 🔄 <span id="aiYenilenme">' + aiYenilenmeMetni() + '</span>' : '') + '</span></div>' +
     '<h1 style="font-size:22px">🤖 ' + (t?"Tarım Asistanı":"Агро асистент") + '</h1>' +
     '<div class="sub">' + (t
-      ? "Tarım, ilaçlama, gübreleme, hastalıklar… ne istersen sor. Her hesabın günde 5 soru hakkı vardır."
-      : "Земеделие, пръскане, торене, болести… питай каквото искаш. Всеки акаунт има 5 въпроса на ден.") + '</div>';
+      ? "Tarım, ilaçlama, gübreleme, hastalıklar… ne istersen sor. Her hesabın günde " + aiLimit + " soru hakkı vardır."
+      : "Земеделие, пръскане, торене, болести… питай каквото искаш. Всеки акаунт има " + aiLimit + " въпроса на ден.") + '</div>';
 
   if (!aiGecmis.length) {
     h += '<div class="bilgi" style="margin-top:10px"><div class="k">' + (t?"Örnek sorular":"Примерни въпроси") + '</div>' +
