@@ -611,6 +611,13 @@ window.firmaPanelAc = async () => {
     ? "Süre bitti ama hiçbir veri silinmedi — her şey salt okunur duruyor. Yeni bir abonelik kodu girince kaldığın yerden devam edersin."
     : "Времето изтече, но нищо не е изтрито — всичко е само за четене. Въведи нов код и продължи оттам, докъдето стигна.") + '</div>';
   if (firmaRol === "yonetici") {
+    html += '<div class="formBox" style="margin:10px 0 0"><div class="row" style="align-items:center">' +
+      '<div style="font-size:12.5px;font-weight:800">💱 ' + (t?"Para birimi":"Валута") + '</div>' +
+      '<select onchange="paraBirimiDegis(this.value)" style="width:auto;margin-left:auto">' +
+      '<option value="EUR"' + (firmaAyarlar.paraBirimi !== "TL" ? " selected" : "") + '>€ Euro</option>' +
+      '<option value="TL"' + (firmaAyarlar.paraBirimi === "TL" ? " selected" : "") + '>₺ Türk Lirası</option>' +
+      '</select></div><div style="font-size:11px;color:var(--muted);margin-top:4px">' +
+      (t?"Kira, stok değeri ve çalışan ödemelerinde kullanılır; tüm üyelerde geçerli olur.":"Използва се за наеми, склад и плащания; важи за всички членове.") + '</div></div>';
     html += '<div class="formBox" style="margin:10px 0 0">' +
       '<div style="font-size:12.5px;font-weight:800;margin-bottom:6px">🔑 ' + (t?"Abonelik kodu gir":"Въведи абонаментен код") + '</div>' +
       '<div class="row" style="flex-wrap:nowrap">' +
@@ -683,6 +690,7 @@ async function bulutYukle() {
     if (!data || !data.length) {
       // Yeni firma: demo/örnek veri YOK — tamamen boş başla
       parseller = []; stok = []; calisanlar = []; gorevler = []; stokHareket = []; wikiNotlar = {};
+      firmaAyarlar = { paraBirimi: "EUR" };
       seciliId = null;
       if (!saltOkuma) await bulutKaydet(true);
       return;
@@ -722,7 +730,19 @@ function veriUygula(satirlar) {
   if (harita.gorevler) gorevler = harita.gorevler;
   if (harita.stokHareket) stokHareket = harita.stokHareket;
   if (harita.wikiNotlar) wikiNotlar = harita.wikiNotlar;
+  if (harita.ayarlar) firmaAyarlar = Object.assign({ paraBirimi:"EUR" }, harita.ayarlar);
 }
+
+// ---- Firma ayarları (para birimi vb.) — bulut üzerinden tüm üyelerde ortak ----
+let firmaAyarlar = { paraBirimi: "EUR" }; // "EUR" | "TL"
+function PB() { return firmaAyarlar.paraBirimi === "TL" ? "₺" : "€"; }
+window.paraBirimiDegis = (v) => {
+  firmaAyarlar.paraBirimi = v === "TL" ? "TL" : "EUR";
+  if (bulutHazir) bulutKaydet();
+  render();
+  toast("💱 " + (dil==="tr" ? "Para birimi: " : "Валута: ") + PB());
+  firmaPanelAc();
+};
 
 // Firma verisini firma bazlı tabloya yaz (debounce)
 async function bulutKaydet(hemen) {
@@ -740,6 +760,7 @@ async function bulutKaydet(hemen) {
       { firma_id:fid, anahtar:"gorevler",    veri: gorevler,    guncelleyen:eposta, guncellendi:zaman },
       { firma_id:fid, anahtar:"stokHareket", veri: stokHareket, guncelleyen:eposta, guncellendi:zaman },
       { firma_id:fid, anahtar:"wikiNotlar",  veri: wikiNotlar,  guncelleyen:eposta, guncellendi:zaman },
+      { firma_id:fid, anahtar:"ayarlar",     veri: firmaAyarlar, guncelleyen:eposta, guncellendi:zaman },
     ];
     try {
       const { error } = await sb.from("firma_veri").upsert(satirlar, { onConflict:"firma_id,anahtar" });
@@ -938,6 +959,12 @@ const S = {
   tutar:{tr:"Tutar (€)",bg:"Сума (€)"}, veren:{tr:"Veren / kaynak",bg:"Дал / източник"},
   hareketTip:{tr:"Hareket tipi",bg:"Тип движение"}, nakitYok:{tr:"Nakit hareketi yok.",bg:"Няма кеш движения."},
   toplamAvans:{tr:"Toplam avans",bg:"Общо аванси"}, toplamBorc:{tr:"Net bakiye",bg:"Нетен баланс"},
+  anlasma:{tr:"Sezonluk anlaşma",bg:"Сезонно споразумение"},
+  anlasmaTutari:{tr:"Anlaşma tutarı",bg:"Договорена сума"},
+  odenen:{tr:"Ödenen",bg:"Платено"}, kalanOdeme:{tr:"Kalan",bg:"Остава"},
+  anlasmaYok:{tr:"Bu sezon için anlaşma tutarı girilmedi.",bg:"Няма договорена сума за този сезон."},
+  anlasmaAsildi:{tr:"Anlaşma tutarı aşıldı!",bg:"Договорената сума е надвишена!"},
+  anlasmaIpucu:{tr:"Aşağıdan avans/ödeme girildikçe kalan tutar otomatik düşer.",bg:"Оставащата сума намалява автоматично с всяко плащане."},
   calisanSil:{tr:"Çalışanı sil",bg:"Изтрий служителя"}, calisanYok:{tr:"Çalışan yok. Yukarıdan ekleyin.",bg:"Няма служители."},
   atanmamis:{tr:"— Usta atanmamış —",bg:"— Няма отговорник —"},
 };
@@ -1299,7 +1326,7 @@ function yeniParselModal(latlngs) {
     '<option value="sirket" selected>' + (dil==="tr"?"Şirket malı":"Собственост") + '</option><option value="kiralik">' + (dil==="tr"?"Kiralık":"Наем") + '</option></select>' +
     '<div id="ymKiraKutu" class="ymSatir" style="display:none">' +
     '<div><label>' + TR(S.kiraSuresi) + '</label><input type="number" id="ymKiraYil" placeholder="5"></div>' +
-    '<div><label>' + TR(S.yillikKira) + '</label><input type="number" id="ymKiraTutar" placeholder="8500" oninput="ymKiraDa(' + alan.toFixed(2) + ')"></div></div>' +
+    '<div><label>' + TR(S.yillikKira).replace("€", PB()) + '</label><input type="number" id="ymKiraTutar" placeholder="8500" oninput="ymKiraDa(' + alan.toFixed(2) + ')"></div></div>' +
     '<div id="ymKiraDaBilgi" style="font-size:11.5px;color:var(--blue);margin-top:4px"></div>' +
     '<div class="ymAlan">' + TR(S.cizilenAlan) + ': ' + alan.toFixed(1).replace(".",",") + ' ' + TR(S.dekar) + ' (' + Math.round(alan*1000) + ' m²)</div>' +
     '<div class="ymBtnlar"><button class="ymKaydet" onclick="yeniParselKaydet()">' + TR(S.kaydet) + '</button>' +
@@ -1318,7 +1345,7 @@ window.ymKiraGoster = () => {
 };
 window.ymKiraDa = (alan) => {
   const t = parseFloat(document.getElementById("ymKiraTutar").value);
-  document.getElementById("ymKiraDaBilgi").textContent = t ? "→ " + TR(S.dekarMaliyeti) + ": " + (t/alan).toFixed(1).replace(".",",") + " €/" + (dil==="tr"?"da":"дка") : "";
+  document.getElementById("ymKiraDaBilgi").textContent = t ? "→ " + TR(S.dekarMaliyeti) + ": " + (t/alan).toFixed(1).replace(".",",") + " " + PB() + "/" + (dil==="tr"?"da":"дка") : "";
 };
 window.yeniParselIptal = () => {
   document.getElementById("yeniModal").style.display = "none";
@@ -1365,7 +1392,7 @@ function mulkiyetText(p) {
     let s = (dil==="tr"?"Kiralık · ":"Наем · ") + (p.kiraYil || "?") + (dil==="tr"?" yıl":" год.");
     if (p.kiraTutar) {
       const daMaliyet = p.kiraTutar / alanDa(p.latlngs);
-      s += " · " + p.kiraTutar.toLocaleString(dil==="tr"?"tr-TR":"bg-BG") + " €/" + (dil==="tr"?"yıl":"год.") + " · " + daMaliyet.toFixed(1).replace(".",",") + " €/" + (dil==="tr"?"da":"дка");
+      s += " · " + p.kiraTutar.toLocaleString(dil==="tr"?"tr-TR":"bg-BG") + " " + PB() + "/" + (dil==="tr"?"yıl":"год.") + " · " + daMaliyet.toFixed(1).replace(".",",") + " " + PB() + "/" + (dil==="tr"?"da":"дка");
     } else s += dil==="tr" ? " · tutar girilmedi" : " · без сума";
     return s;
   }
@@ -1619,9 +1646,9 @@ function render() {
         '<option value="kiralik"' + (kiralik ? " selected" : "") + '>' + (dil==="tr"?"Kiralık":"Наем") + '</option></select>' +
         '<div id="kiraKutu" class="row" style="display:' + (kiralik ? "flex" : "none") + '">' +
         '<div style="flex:1"><label>' + TR(S.kiraSuresi) + '</label><input type="number" id="eKiraYil" min="1" value="' + (secili.kiraYil || "") + '" placeholder="5"></div>' +
-        '<div style="flex:1"><label>' + TR(S.yillikKira) + '</label><input type="number" id="eKiraTutar" min="0" value="' + (secili.kiraTutar || "") + '" placeholder="8500" oninput="kiraDaOnizle(' + alan.toFixed(2) + ')"></div></div>' +
+        '<div style="flex:1"><label>' + TR(S.yillikKira).replace("€", PB()) + '</label><input type="number" id="eKiraTutar" min="0" value="' + (secili.kiraTutar || "") + '" placeholder="8500" oninput="kiraDaOnizle(' + alan.toFixed(2) + ')"></div></div>' +
         '<div id="kiraDaBilgi" style="font-size:11.5px;color:var(--blue);margin-top:4px">' +
-        (kiralik && secili.kiraTutar ? "→ " + TR(S.dekarMaliyeti) + ": " + (secili.kiraTutar / alan).toFixed(1).replace(".",",") + " €/" + (dil==="tr"?"da":"дка") : "") + '</div>' +
+        (kiralik && secili.kiraTutar ? "→ " + TR(S.dekarMaliyeti) + ": " + (secili.kiraTutar / alan).toFixed(1).replace(".",",") + " " + PB() + "/" + (dil==="tr"?"da":"дка") : "") + '</div>' +
         '<div class="row" style="margin-top:10px"><button class="btn green" style="flex:1" onclick="bilgiKaydet()">' + TR(S.kaydet) + '</button>' +
         '<button class="btn" onclick="duzenleKapat()">' + TR(S.vazgec) + '</button></div></div>';
     } else {
@@ -1776,7 +1803,7 @@ window.kiraAlanlari = () => {
 window.kiraDaOnizle = (alan) => {
   const tutar = parseFloat(document.getElementById("eKiraTutar").value);
   const el = document.getElementById("kiraDaBilgi");
-  el.textContent = tutar ? "→ " + TR(S.dekarMaliyeti) + ": " + (tutar / alan).toFixed(1).replace(".",",") + " €/" + (dil==="tr"?"da":"дка") : "";
+  el.textContent = tutar ? "→ " + TR(S.dekarMaliyeti) + ": " + (tutar / alan).toFixed(1).replace(".",",") + " " + PB() + "/" + (dil==="tr"?"da":"дка") : "";
 };
 window.bilgiKaydet = () => {
   const p = parseller.find(x => x.id === seciliId);
@@ -2040,6 +2067,22 @@ function nakitBakiye(c) {
   // negatif = çalışan şirkete borçlu (avans fazlası)
   return (c.nakit||[]).reduce((t,h) => t + (NAKIT_TIP[h.tip] ? NAKIT_TIP[h.tip].yon * h.tutar : 0), 0);
 }
+// Sezon içinde çalışana fiilen ödenen: verilen avans/ödemeler − iade/mahsuplar
+function sezonOdenen(c, yil) {
+  return (c.nakit||[]).reduce((t,h) => {
+    if ((h.tarih||"").slice(0,4) !== String(yil)) return t;
+    const nt = NAKIT_TIP[h.tip]; if (!nt || !h.tutar) return t;
+    return t + (nt.yon < 0 ? h.tutar : -h.tutar);
+  }, 0);
+}
+window.anlasmaKaydet = (cid) => {
+  const c = calisanlar.find(x => x.id === cid); if (!c) return;
+  const deger = parseFloat(document.getElementById("aTutar").value);
+  if (!c.anlasma) c.anlasma = {};
+  if (!deger || deger <= 0) { delete c.anlasma[aktifSezon]; toast(TR(S.anlasma) + " ✕"); }
+  else { c.anlasma[aktifSezon] = deger; toast("🤝 " + TR(S.anlasmaTutari) + ": " + deger.toLocaleString(dil==="tr"?"tr-TR":"bg-BG") + " " + PB()); }
+  calisanCiz();
+};
 function belgeUyarisi(b) {
   if (!b.gecerlilik) return null;
   const gun = Math.round((new Date(b.gecerlilik+"T00:00:00") - new Date()) / 86400000);
@@ -2087,7 +2130,8 @@ function calisanCiz() {
         '<div class="row" style="align-items:baseline"><span style="font-size:16px">' + r.ikon + '</span>' +
         '<div style="flex:1"><div style="font-size:14px;font-weight:700">' + esc(c.ad) + '</div>' +
         '<div style="font-size:11.5px;color:var(--muted)">' + TR(r.ad) + (c.uyruk ? ' · ' + esc(c.uyruk) : '') + '</div></div>' +
-        (bak !== 0 ? '<span style="font-size:12px;font-weight:700;font-family:ui-monospace,monospace;color:' + (bak<0?"#B5443C":"#3E7A3A") + '">' + (bak<0?"":"+") + bak + ' €</span>' : '') +
+        (bak !== 0 ? '<span style="font-size:12px;font-weight:700;font-family:ui-monospace,monospace;color:' + (bak<0?"#B5443C":"#3E7A3A") + '">' + (bak<0?"":"+") + bak + ' ' + PB() + '</span>' : '') +
+        ((c.anlasma||{})[aktifSezon] ? '<span class="chip" style="background:var(--greenBg);border-color:#C9DFC4;color:var(--green)">🤝 ' + TR(S.kalanOdeme) + ': ' + ((c.anlasma[aktifSezon] - sezonOdenen(c, aktifSezon)).toLocaleString(dil==="tr"?"tr-TR":"bg-BG")) + ' ' + PB() + '</span>' : '') +
         '<span style="color:var(--faint);font-size:18px">›</span></div>' +
         (atanan.length ? '<div style="font-size:11px;color:var(--green)">📍 ' + atanan.map(p=>esc(p.ad)).join(", ") + '</div>' : '') +
         '</div>';
@@ -2130,17 +2174,40 @@ function calisanCiz() {
         '<button onclick="belgeSil(\'' + c.id + '\',\'' + b.id + '\')" style="border:none;background:transparent;color:var(--faint);font-size:15px;cursor:pointer">×</button></div>';
     });
 
+    // ---- Sezonluk anlaşma ----
+    const anlasmaTutar = (c.anlasma||{})[aktifSezon] || 0;
+    const odenen = sezonOdenen(c, aktifSezon);
+    h += '<div style="font-size:13px;font-weight:700;margin:16px 0 6px">🤝 ' + TR(S.anlasma) + ' — ' + aktifSezon + '</div>';
+    h += '<div class="formBox"><div class="row" style="align-items:flex-end"><div style="flex:1"><label>' + TR(S.anlasmaTutari) + ' (' + PB() + ')</label>' +
+      '<input type="number" id="aTutar" min="0" value="' + (anlasmaTutar || "") + '" placeholder="15000"></div>' +
+      '<button class="btn green" onclick="anlasmaKaydet(\'' + c.id + '\')">' + TR(S.kaydet) + '</button></div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:5px">' + TR(S.anlasmaIpucu) + '</div></div>';
+    if (anlasmaTutar) {
+      const kalanTutar = anlasmaTutar - odenen;
+      const oran = Math.min(100, Math.max(0, Math.round(odenen / anlasmaTutar * 100)));
+      const fmtP = v => v.toLocaleString(dil==="tr"?"tr-TR":"bg-BG") + " " + PB();
+      h += '<div class="ozet" style="background:' + (kalanTutar < 0 ? "#FBEAE8" : "var(--greenBg)") + ';border-color:' + (kalanTutar < 0 ? "#EFC7C2" : "#C9DFC4") + '">' +
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;flex-wrap:wrap;gap:4px">' +
+        '<span>' + TR(S.anlasmaTutari) + ': ' + fmtP(anlasmaTutar) + '</span>' +
+        '<span style="color:var(--green)">' + TR(S.odenen) + ': ' + fmtP(odenen) + '</span>' +
+        '<span style="color:' + (kalanTutar < 0 ? "var(--red)" : "var(--ink)") + '">' + TR(S.kalanOdeme) + ': ' + fmtP(kalanTutar) + '</span></div>' +
+        '<div style="background:#fff;border:1px solid var(--border);border-radius:20px;height:10px;margin-top:8px;overflow:hidden">' +
+        '<div style="height:100%;width:' + oran + '%;background:' + (kalanTutar < 0 ? "var(--red)" : "var(--green)") + ';border-radius:20px"></div></div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px">%' + oran + ' ' + TR(S.odenen).toLowerCase() +
+        (kalanTutar < 0 ? ' — ⚠️ ' + TR(S.anlasmaAsildi) : '') + '</div></div>';
+    }
+
     // ---- Nakit / bakiye ----
     h += '<div style="font-size:13px;font-weight:700;margin:16px 0 6px">💵 ' + TR(S.nakit) + '</div>';
     h += '<div class="ozet" style="background:' + (bak<0?"#FBEAE8":bak>0?"#E8F1E5":"#F5F4EF") + ';border-color:' + (bak<0?"#EFC7C2":"#D5D9CE") + '">' +
       '<div style="display:flex;justify-content:space-between;align-items:center">' +
       '<span style="font-size:13px;font-weight:700">' + TR(S.bakiye) + '</span>' +
-      '<span style="font-size:18px;font-weight:800;font-family:ui-monospace,monospace;color:' + (bak<0?"#B5443C":bak>0?"#3E7A3A":"var(--muted)") + '">' + (bak<0?"":"+") + bak + ' €</span></div>' +
+      '<span style="font-size:18px;font-weight:800;font-family:ui-monospace,monospace;color:' + (bak<0?"#B5443C":bak>0?"#3E7A3A":"var(--muted)") + '">' + (bak<0?"":"+") + bak + ' ' + PB() + '</span></div>' +
       '<div style="font-size:11.5px;color:var(--muted);margin-top:2px">' + (bak<0 ? TR(S.borclu) + " (" + TR(S.toplamAvans).toLowerCase() + ")" : bak>0 ? TR(S.alacakli) : "—") + '</div></div>';
 
     h += '<div class="formBox" style="margin-top:8px"><div class="row"><div style="flex:1"><label>' + TR(S.hareketTip) + '</label><select id="nTip">' +
       Object.entries(NAKIT_TIP).map(([k,n]) => '<option value="' + k + '">' + TR(n.ad) + '</option>').join("") + '</select></div>' +
-      '<div style="flex:1"><label>' + TR(S.tutar) + '</label><input type="number" id="nTutar" placeholder="500"></div></div>' +
+      '<div style="flex:1"><label>' + TR(S.tutar).replace("€", PB()) + '</label><input type="number" id="nTutar" placeholder="500"></div></div>' +
       '<div class="row"><div style="flex:2"><label>' + TR(S.veren) + '</label><input id="nVeren" placeholder="Şirket kasa / Ivan"></div>' +
       '<div style="flex:1"><label>' + TR(S.tarih) + '</label><input type="date" id="nTarih" value="' + new Date().toISOString().slice(0,10) + '"></div></div>' +
       '<input id="nNot" placeholder="' + TR(S.notAlan) + '" style="margin-top:6px">' +
@@ -2152,7 +2219,7 @@ function calisanCiz() {
       const nt = NAKIT_TIP[n.tip] || { ad:{tr:n.tip,bg:n.tip}, yon:-1, renk:"#B5443C" };
       const isaret = nt.yon < 0 ? "−" : "+";
       h += '<div class="kayit"><span style="font-size:15px">💵</span><div style="flex:1">' +
-        '<div class="t"><b style="color:' + nt.renk + '">' + isaret + n.tutar + ' €</b> · ' + TR(nt.ad) +
+        '<div class="t"><b style="color:' + nt.renk + '">' + isaret + n.tutar + ' ' + PB() + '</b> · ' + TR(nt.ad) +
         (n.veren ? ' · ' + esc(n.veren) : '') + (n.not ? '<br><span style="color:var(--muted)">' + esc(n.not) + '</span>' : '') + '</div>' +
         '<div class="d mono">' + (n.tarih||"") + '</div></div>' +
         '<button onclick="nakitSil(\'' + c.id + '\',\'' + n.id + '\')" style="border:none;background:transparent;color:var(--faint);font-size:15px;cursor:pointer">×</button></div>';
@@ -2168,7 +2235,7 @@ window.calisanKaydet = () => {
   const ad = g("cAd").value.trim();
   if (!ad) { toast(TR(S.adSoyad)); return; }
   calisanlar.push({ id:gid(), ad, rol:g("cRol").value, tel:g("cTel").value.trim(),
-    uyruk:g("cUyruk").value.trim(), kimlikNo:"", giris:g("cGiris").value, not:"", belgeler:[], nakit:[] });
+    uyruk:g("cUyruk").value.trim(), kimlikNo:"", giris:g("cGiris").value, not:"", belgeler:[], nakit:[], anlasma:{} });
   calisanCiz();
 };
 window.calisanSil = (id) => {
@@ -2414,7 +2481,7 @@ function stokCiz() {
 
   let h = '<div class="row" style="margin-bottom:6px"><button class="btn" onclick="stokKapat()">' + TR(S.haritayaDon) + '</button>' +
     '<h1 style="flex:1;margin:0">' + TR(S.stokBaslik) + '</h1></div>';
-  h += '<div class="sub">' + TR(S.toplamStokDeger) + ': <b style="color:var(--green)">' + Math.round(toplamDeger).toLocaleString(dil==="tr"?"tr-TR":"bg-BG") + ' €</b></div>';
+  h += '<div class="sub">' + TR(S.toplamStokDeger) + ': <b style="color:var(--green)">' + Math.round(toplamDeger).toLocaleString(dil==="tr"?"tr-TR":"bg-BG") + ' ' + PB() + '</b></div>';
 
   // Uyarılar
   const uyarililar = stok.filter(s => stokDurum(s).length);
@@ -2435,7 +2502,7 @@ function stokCiz() {
     '<div style="flex:2"><label>' + TR(S.urunAdi) + '</label><input id="skAd" placeholder="' + (dil==="tr"?"ör. Üre %46":"напр. Урея 46%") + '"></div></div>' +
     '<div class="row"><div style="flex:1"><label>' + TR(S.giren) + '</label><input type="number" id="skGiren" placeholder="100"></div>' +
     '<div style="flex:1"><label>' + TR(S.miktar) + ' (' + TR(S.kalan).toLowerCase() + ')</label><input type="number" id="skKalan" placeholder="100"></div>' +
-    '<div style="flex:1"><label>' + TR(S.birimFiyat) + '</label><input type="number" id="skFiyat" placeholder="20"></div></div>' +
+    '<div style="flex:1"><label>' + TR(S.birimFiyat).replace("€", PB()) + '</label><input type="number" id="skFiyat" placeholder="20"></div></div>' +
     '<div class="row"><div style="flex:1"><label>' + TR(S.miktar) + '</label><select id="skBirim">' +
     Object.entries(STOK_BIRIM).map(([k,b]) => '<option value="' + k + '">' + b.kisa + '</option>').join("") + '</select></div>' +
     '<div style="flex:1"><label>' + TR(S.skt) + '</label><input type="date" id="skSkt"></div>' +
@@ -2460,7 +2527,7 @@ function stokCiz() {
         '<div style="height:6px;background:#EDECE4;border-radius:4px;overflow:hidden"><div style="width:' + oran + '%;height:100%;background:' + cizgiRenk + '"></div></div>' +
         '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);flex-wrap:wrap;gap:6px">' +
         '<span>' + TR(S.giren) + ': ' + s.giren + ' ' + birimK(s.birim) + '</span>' +
-        (s.birimFiyat ? '<span>' + s.birimFiyat + ' €/' + birimK(s.birim) + ' · ' + TR(S.toplamDeger) + ': <b>' + Math.round(s.kalan*s.birimFiyat) + ' €</b></span>' : '') +
+        (s.birimFiyat ? '<span>' + s.birimFiyat + ' ' + PB() + '/' + birimK(s.birim) + ' · ' + TR(S.toplamDeger) + ': <b>' + Math.round(s.kalan*s.birimFiyat) + ' ' + PB() + '</b></span>' : '') +
         (s.skt ? '<span style="color:' + (gun<0?"#B5443C":gun<=60?"#C77D1E":"var(--muted)") + '">SKT: ' + s.skt + (gun!==null?' ('+gun+'g)':'') + '</span>' : '') +
         (s.alan ? '<span>📍 ' + esc(s.alan) + '</span>' : '') +
         (s.teslimAlan && s.teslimAlan !== "—" ? '<span>👤 ' + esc(s.teslimAlan) + '</span>' : '') +
@@ -2522,7 +2589,7 @@ window.stokGirisAc = (id) => {
     '<div style="flex:1"><label>' + TR(S.girisTarihi) + '</label><input type="date" id="sgTarih" value="' + bugun + '"></div></div>' +
     '<label>' + TR(S.kimTeslimAldi) + '</label><input id="sgTeslim" placeholder="' + (dil==="tr"?"ör. Ivan Petrov":"напр. Иван") + '">' +
     '<label>' + TR(S.kimGetirdi) + '</label><input id="sgKaynak" placeholder="' + (dil==="tr"?"ör. Agrimatco bayi":"напр. доставчик") + '">' +
-    '<label>' + TR(S.birimFiyat) + ' (' + (dil==="tr"?"ops. günceller":"опц.") + ')</label><input type="number" id="sgFiyat" placeholder="' + (s.birimFiyat||"") + '">' +
+    '<label>' + TR(S.birimFiyat).replace("€", PB()) + ' (' + (dil==="tr"?"ops. günceller":"опц.") + ')</label><input type="number" id="sgFiyat" placeholder="' + (s.birimFiyat||"") + '">' +
     '<div class="oBtnlar" style="margin-top:16px"><button class="oVazgec" onclick="stokGirisKapat()">' + TR(S.vazgec) + '</button>' +
     '<button class="oOnayla" style="background:var(--green)" onclick="stokGirisKaydet(\'' + id + '\')">' + TR(S.kaydet) + '</button></div>';
   document.getElementById("stokGirisModal").style.display = "block";
