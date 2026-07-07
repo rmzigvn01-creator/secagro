@@ -3199,6 +3199,7 @@ let aiGecmis = [];      // { rol:"ben"|"bot", metin }
 let aiKalan = null;     // bugünkü kalan hak
 let aiBekliyor = false;
 
+let aiSayacInterval = null;
 window.aiAc = async () => {
   aiEl.style.display = "block";
   aiCiz();
@@ -3206,8 +3207,25 @@ window.aiAc = async () => {
     const { data, error } = await sb.rpc("ai_hak");
     if (!error) { aiKalan = data; aiCiz(); }
   } catch(e){}
+  // yenilenme sayacını dakikada bir tazele
+  clearInterval(aiSayacInterval);
+  aiSayacInterval = setInterval(() => {
+    const el = document.getElementById("aiYenilenme");
+    if (el) el.textContent = aiYenilenmeMetni();
+  }, 30000);
 };
-window.aiKapat = () => { aiEl.style.display = "none"; };
+window.aiKapat = () => { aiEl.style.display = "none"; clearInterval(aiSayacInterval); };
+window.aiTemizle = () => { aiGecmis = []; aiCiz(); };
+
+// Haklar her gece (UTC gece yarısı) yenilenir — kalan süreyi yaz
+function aiYenilenmeMetni() {
+  const simdi = new Date();
+  const sifirlama = Date.UTC(simdi.getUTCFullYear(), simdi.getUTCMonth(), simdi.getUTCDate() + 1);
+  const ms = sifirlama - simdi.getTime();
+  const sa = Math.floor(ms / 3600000), dk = Math.ceil((ms % 3600000) / 60000);
+  const t = dil === "tr";
+  return (sa > 0 ? sa + (t ? " sa " : " ч ") : "") + dk + (t ? " dk" : " мин");
+}
 
 // Kısa çiftlik bağlamı: asistan parselleri tanısın
 function aiBaglam() {
@@ -3233,7 +3251,9 @@ window.aiSor = async () => {
   try {
     const { data, error } = await sb.rpc("ai_sor", { soru: soru + aiBaglam() });
     if (error) throw error;
-    aiGecmis.push({ rol:"bot", metin: data.cevap });
+    // model bağlam bloğunu cevapta tekrar ederse temizle
+    const temiz = (data.cevap || "").replace(/\[Bağlam[\s\S]*?\]/g, "").trim();
+    aiGecmis.push({ rol:"bot", metin: temiz });
     aiKalan = data.kalan;
   } catch(e) {
     aiGecmis.push({ rol:"bot", metin: "⚠️ " + (e.message || (t?"Bir sorun oluştu.":"Възникна проблем.")) });
@@ -3251,8 +3271,10 @@ function aiMetinHtml(m) {
 function aiCiz() {
   const t = dil === "tr";
   let h = '<div class="row" style="margin-bottom:6px"><button class="btn" onclick="aiKapat()">' + TR(S.haritayaDon) + '</button>' +
+    (aiGecmis.length ? '<button class="btn" onclick="aiTemizle()">🗑 ' + (t?"Sohbeti temizle":"Изчисти чата") + '</button>' : '') +
     '<span class="aiHakChip' + (aiKalan === 0 ? " bitti" : "") + '" style="margin-left:auto">' +
-    (aiKalan === null ? "…" : (t ? "Bugün kalan: " + aiKalan + "/5" : "Днес остават: " + aiKalan + "/5")) + '</span></div>' +
+    (aiKalan === null ? "…" : (t ? "Bugün kalan: " + aiKalan + "/5" : "Днес остават: " + aiKalan + "/5")) +
+    (aiKalan !== null && aiKalan < 5 ? ' · 🔄 <span id="aiYenilenme">' + aiYenilenmeMetni() + '</span>' : '') + '</span></div>' +
     '<h1 style="font-size:22px">🤖 ' + (t?"Tarım Asistanı":"Агро асистент") + '</h1>' +
     '<div class="sub">' + (t
       ? "Tarım, ilaçlama, gübreleme, hastalıklar… ne istersen sor. Her hesabın günde 5 soru hakkı vardır."
