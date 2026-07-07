@@ -51,6 +51,19 @@
   .modulBtn.takvim:hover { border-color:#D8C9E7; background:#F0EAF5; }
   .modulBtn.calisan:hover { border-color:#C7DDCB; background:#EAF2EC; }
   .modulBtn.hava:hover { border-color:#B9D4E4; background:#E4F0F7; }
+  .modulBtn.asistan:hover { border-color:#D6C9E8; background:#F1EBF8; }
+  /* ---- AI asistan sohbeti ---- */
+  .aiMsg { max-width:88%; border-radius:14px; padding:10px 13px; margin-top:8px; font-size:13.5px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word; }
+  .aiMsg.ben { margin-left:auto; background:var(--green); color:#fff; border-bottom-right-radius:4px; }
+  .aiMsg.bot { margin-right:auto; background:#fff; border:1px solid var(--border); border-bottom-left-radius:4px; }
+  .aiMsg.bekliyor { color:var(--faint); font-style:italic; }
+  .aiHakChip { display:inline-block; background:var(--greenBg); border:1px solid #C9DFC4; color:var(--green);
+    font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:20px; }
+  .aiHakChip.bitti { background:#FBEAE8; border-color:#EFC7C2; color:var(--red); }
+  .aiSorKutu { position:sticky; bottom:0; background:var(--bg); padding:10px 0 16px; margin-top:14px; }
+  .aiSorKutu textarea { width:100%; box-sizing:border-box; font-family:inherit; font-size:13.5px; padding:10px 12px;
+    border:1px solid var(--border); border-radius:10px; resize:vertical; min-height:58px; }
+  .aiSorKutu textarea:focus { outline:none; border-color:var(--green); }
   /* ---- Hava durumu modülü ---- */
   .havaSimdi { background:linear-gradient(135deg,#2C6E8F,#1E4E68); color:#fff; border-radius:14px; padding:16px; margin-top:12px;
     display:flex; align-items:center; gap:16px; box-shadow:0 6px 18px rgba(44,110,143,.25); }
@@ -261,6 +274,7 @@
   #takvimEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
   #calisanEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
   #havaEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
+  #aiEkrani { display:none; position:fixed; inset:0; background:var(--bg); z-index:2000; overflow-y:auto; }
   .wikiIc { max-width:720px; margin:0 auto; padding:20px 16px 60px; }
   .uyum { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; border-radius:8px; font-size:13px; font-weight:600; margin-top:6px; }
   .uyum.ok  { background:var(--greenBg); color:var(--green); border:1px solid #C9DFC4; }
@@ -284,6 +298,7 @@
 <div id="takvimEkrani"><div class="wikiIc" id="takvimIcerik"></div></div>
 <div id="calisanEkrani"><div class="wikiIc" id="calisanIcerik"></div></div>
 <div id="havaEkrani"><div class="wikiIc" id="havaIcerik"></div></div>
+<div id="aiEkrani"><div class="wikiIc" id="aiIcerik"></div></div>
 <div id="yeniModal"><div class="ymArka" onclick="yeniParselIptal()"></div><div class="ymKart" id="ymKart"></div></div>
 <div id="onayModal"><div class="onayArka"></div><div class="onayKart" id="onayKart"></div></div>
 <div id="stokGirisModal"><div class="onayArka" onclick="stokGirisKapat()"></div><div class="onayKart" id="stokGirisKart" style="width:min(420px,94vw)"></div></div>
@@ -1469,7 +1484,8 @@ function render() {
     '<button class="modulBtn stok" onclick="stokAc()"><span class="mIkon">📦</span>' + TR(S.stok).replace("📦 ","") + '</button>' +
     '<button class="modulBtn takvim" onclick="takvimAc()"><span class="mIkon">📅</span>' + TR(S.takvim).replace("📅 ","") + '</button>' +
     '<button class="modulBtn calisan" onclick="calisanAc()"><span class="mIkon">👷</span>' + TR(S.calisanlar).replace("👷 ","") + '</button>' +
-    '<button class="modulBtn hava" onclick="havaAc()" style="grid-column:1 / -1"><span class="mIkon">🌦️</span>' + (dil==="tr"?"Hava Durumu":"Метео прогноза") + '</button>' +
+    '<button class="modulBtn hava" onclick="havaAc()"><span class="mIkon">🌦️</span>' + (dil==="tr"?"Hava Durumu":"Метео прогноза") + '</button>' +
+    '<button class="modulBtn asistan" onclick="aiAc()"><span class="mIkon">🤖</span>' + (dil==="tr"?"Tarım Asistanı":"Агро асистент") + '</button>' +
     '</div>';
 
   if (!secili) {
@@ -3172,6 +3188,100 @@ function havaCiz() {
   h += '<div class="sub" style="margin-top:12px;font-size:11px">' + (t?"Kaynak: Open-Meteo · 15 dk'da bir yenilenir":"Източник: Open-Meteo · обновява се на 15 мин") + '</div>';
 
   havaIc.innerHTML = h;
+}
+
+// ================= YAPAY ZEKA TARIM ASİSTANI =================
+// Sorular Supabase RPC üzerinden Gemini'ye gider (anahtar sunucuda kalır);
+// günlük 5 soru hakkı sunucu tarafında sayılır.
+const aiEl = document.getElementById("aiEkrani");
+const aiIc = document.getElementById("aiIcerik");
+let aiGecmis = [];      // { rol:"ben"|"bot", metin }
+let aiKalan = null;     // bugünkü kalan hak
+let aiBekliyor = false;
+
+window.aiAc = async () => {
+  aiEl.style.display = "block";
+  aiCiz();
+  try {
+    const { data, error } = await sb.rpc("ai_hak");
+    if (!error) { aiKalan = data; aiCiz(); }
+  } catch(e){}
+};
+window.aiKapat = () => { aiEl.style.display = "none"; };
+
+// Kısa çiftlik bağlamı: asistan parselleri tanısın
+function aiBaglam() {
+  try {
+    if (!parseller.length) return "";
+    const ozet = parseller.slice(0, 15).map(p =>
+      p.ad + " (" + Math.round(alanDa(p.latlngs) || 0) + " da" +
+      (p.cesit && p.cesit !== "—" ? ", çeşit: " + p.cesit : "") +
+      (p.durum ? ", durum: " + p.durum : "") + ")"
+    ).join("; ");
+    return "\n\n[Bağlam — kullanıcının parselleri: " + ozet + "]";
+  } catch(e) { return ""; }
+}
+
+window.aiSor = async () => {
+  const kutu = document.getElementById("aiSoruInput");
+  const soru = (kutu ? kutu.value : "").trim();
+  if (!soru || aiBekliyor) return;
+  const t = dil === "tr";
+  aiGecmis.push({ rol:"ben", metin: soru });
+  aiBekliyor = true;
+  aiCiz();
+  try {
+    const { data, error } = await sb.rpc("ai_sor", { soru: soru + aiBaglam() });
+    if (error) throw error;
+    aiGecmis.push({ rol:"bot", metin: data.cevap });
+    aiKalan = data.kalan;
+  } catch(e) {
+    aiGecmis.push({ rol:"bot", metin: "⚠️ " + (e.message || (t?"Bir sorun oluştu.":"Възникна проблем.")) });
+    if (/5 soru|доволно/i.test(e.message || "")) aiKalan = 0;
+  }
+  aiBekliyor = false;
+  aiCiz();
+};
+
+function aiMetinHtml(m) {
+  // güvenli hale getir + **kalın** desteği
+  return esc(m).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+}
+
+function aiCiz() {
+  const t = dil === "tr";
+  let h = '<div class="row" style="margin-bottom:6px"><button class="btn" onclick="aiKapat()">' + TR(S.haritayaDon) + '</button>' +
+    '<span class="aiHakChip' + (aiKalan === 0 ? " bitti" : "") + '" style="margin-left:auto">' +
+    (aiKalan === null ? "…" : (t ? "Bugün kalan: " + aiKalan + "/5" : "Днес остават: " + aiKalan + "/5")) + '</span></div>' +
+    '<h1 style="font-size:22px">🤖 ' + (t?"Tarım Asistanı":"Агро асистент") + '</h1>' +
+    '<div class="sub">' + (t
+      ? "Tarım, ilaçlama, gübreleme, hastalıklar… ne istersen sor. Her hesabın günde 5 soru hakkı vardır."
+      : "Земеделие, пръскане, торене, болести… питай каквото искаш. Всеки акаунт има 5 въпроса на ден.") + '</div>';
+
+  if (!aiGecmis.length) {
+    h += '<div class="bilgi" style="margin-top:10px"><div class="k">' + (t?"Örnek sorular":"Примерни въпроси") + '</div>' +
+      '<div style="font-size:12.5px;line-height:1.7;margin-top:4px">' + (t
+        ? "• Çeltikte kardeşlenme döneminde azot dozu ne olmalı?<br>• Biber otuna karşı hangi herbisit uygun?<br>• Yağmurdan kaç saat önce ilaçlama güvenli?"
+        : "• Каква доза азот при братене на ориза?<br>• Кой хербицид е подходящ срещу кощрява?<br>• Колко часа преди дъжд е безопасно пръскането?") + '</div></div>';
+  }
+  aiGecmis.forEach(m => {
+    h += '<div class="aiMsg ' + (m.rol === "ben" ? "ben" : "bot") + '">' + aiMetinHtml(m.metin) + '</div>';
+  });
+  if (aiBekliyor) h += '<div class="aiMsg bot bekliyor">✍️ ' + (t?"Yanıt yazılıyor…":"Пише отговор…") + '</div>';
+
+  h += '<div class="aiSorKutu">' +
+    '<textarea id="aiSoruInput" placeholder="' + (t?"Sorunu yaz…":"Напиши въпроса си…") + '"' + (aiBekliyor || aiKalan === 0 ? " disabled" : "") + '></textarea>' +
+    '<div class="row" style="margin-top:8px"><div style="font-size:11px;color:var(--faint)">' +
+    (t?"Cevaplar bilgilendirme amaçlıdır; ilaç kullanımında etiket esastır.":"Отговорите са информативни; при препарати етикетът е меродавен.") + '</div>' +
+    '<button class="btn green" onclick="aiSor()" style="margin-left:auto"' + (aiBekliyor || aiKalan === 0 ? " disabled" : "") + '>' +
+    (aiKalan === 0 ? (t?"Hak bitti":"Няма въпроси") : (t?"Gönder":"Изпрати")) + '</button></div></div>';
+
+  aiIc.innerHTML = h;
+  const kutu = document.getElementById("aiSoruInput");
+  if (kutu) {
+    kutu.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); aiSor(); } });
+  }
+  aiEl.scrollTop = aiEl.scrollHeight;
 }
 
 </script>
